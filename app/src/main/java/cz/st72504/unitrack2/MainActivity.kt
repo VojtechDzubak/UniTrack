@@ -171,24 +171,16 @@ class MainActivity : ComponentActivity() {
                 lifecycleScope.launch {
 
                     // --- SCÉNÁŘ 1: NÁVRAT ZE STRAVY ---
+// --- SCÉNÁŘ 1: NÁVRAT ZE STRAVY ---
                     if (state == "strava") {
-                        withContext(Dispatchers.Main) { statusText = "Stahuji data ze Stravy..." }
+                        withContext(Dispatchers.Main) { statusText = "Předávám Stravu backendu..." }
 
-                        val stravaTokens = pbClient.exchangeStravaCode(code)
-                        if (stravaTokens != null) {
-                            // Uložíme do trezoru pomocí NAŠEHO MICROSOFT TOKENU
-                            val success = pbClient.saveStravaTokens(
-                                pbToken = loggedInPbToken,
-                                accessToken = stravaTokens.access_token,
-                                refreshToken = stravaTokens.refresh_token,
-                                athleteId = stravaTokens.athlete.id.toString()
-                            )
-                            withContext(Dispatchers.Main) {
-                                statusText = if (success) "✅ Strava úspěšně připojena a zamčena!"
-                                else "❌ Uložení Stravy do databáze selhalo."
-                            }
-                        } else {
-                            withContext(Dispatchers.Main) { statusText = "❌ Strava odmítla vydat data." }
+                        // Pošleme POUZE kód na náš nový backendový endpoint
+                        val success = pbClient.linkStravaWithCode(loggedInPbToken, code)
+
+                        withContext(Dispatchers.Main) {
+                            statusText = if (success) "✅ Strava úspěšně připojena a zamčena!"
+                            else "❌ Backend odmítl propojení Stravy (viz logy)."
                         }
                     }
 

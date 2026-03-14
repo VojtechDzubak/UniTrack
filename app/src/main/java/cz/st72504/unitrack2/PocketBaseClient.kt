@@ -172,48 +172,36 @@ class PocketBaseClient {
 
     // Funkce pro uložení Strava tokenů do tvého zabezpečeného trezoru
     // Funkce pro uložení Strava tokenů do tvého zabezpečeného trezoru
-    suspend fun saveStravaTokens(pbToken: String, accessToken: String, refreshToken: String, athleteId: String): Boolean {
+    // Nová bezpečná funkce: Pošle pouze jednorázový kód na tvůj backend
+    suspend fun linkStravaWithCode(pbToken: String, stravaCode: String): Boolean {
         return suspendCancellableCoroutine { continuation ->
             try {
-                Log.d("PBClient", "Posílám Strava tokeny do trezoru...")
+                Log.d("PBClient", "Posílám bezpečně jen Strava kód na backend...")
 
-                val jsonBody = """
-                    {
-                        "access_token": "$accessToken",
-                        "refresh_token": "$refreshToken",
-                        "athlete_id": "$athleteId"
-                    }
-                """.trimIndent()
-
+                // Posíláme pouze kód. Backend udělá zbytek práce.
+                val jsonBody = """{"code": "$stravaCode"}"""
                 val requestBody = jsonBody.toRequestBody("application/json".toMediaType())
 
                 val request = Request.Builder()
-                    .url("$baseUrl/api/strava-save-tokens")
+                    .url("$baseUrl/api/strava-exchange-code")
                     .post(requestBody)
-                    // ZDE JE KLÍČOVÉ PŘIDAT TVŮJ POCKETBASE TOKEN PRO AUTORIZACI!
-                    .addHeader("Authorization", "Bearer $pbToken")
+                    .addHeader("Authorization", "Bearer $pbToken") // Autorizace Microsoft účtem
                     .build()
 
-                // OPRAVA: Zde si požadavek musíme uložit do proměnné 'call'
                 val call = client.newCall(request)
-
                 call.enqueue(object : Callback {
                     override fun onFailure(call: Call, e: IOException) {
-                        Log.e("PBClient", "Chyba sítě při ukládání Strava dat: ${e.message}")
+                        Log.e("PBClient", "Chyba sítě při propojování Stravy: ${e.message}")
                         if (continuation.isActive) continuation.resume(false)
                     }
 
                     override fun onResponse(call: Call, response: Response) {
-                        Log.d("PBClient", "Odpověď trezoru: ${response.code}")
-                        // Pokud server vrátí 200, uložení proběhlo úspěšně
+                        Log.d("PBClient", "Odpověď backendu na Stravu: ${response.code}")
                         if (continuation.isActive) continuation.resume(response.isSuccessful)
                     }
                 })
-
-                // Nyní už ví, co je to 'call' a může to správně zrušit
                 continuation.invokeOnCancellation { call.cancel() }
             } catch (e: Exception) {
-                Log.e("PBClient", "Neočekávaná chyba (Strava trezor): ${e.message}")
                 if (continuation.isActive) continuation.resume(false)
             }
         }
