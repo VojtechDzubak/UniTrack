@@ -8,12 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,13 +24,10 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
 
     private var statusText by mutableStateOf("Stav: Nepřihlášen")
-
     private var currentCodeVerifier = ""
     private var currentProvider = ""
-
     private var loggedInPbToken = ""
     private var loggedInUserId = ""
-
     private var activitiesList by mutableStateOf<List<ActivityRecord>>(emptyList())
 
     private val pbClient = PocketBaseClient()
@@ -44,7 +36,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // --- NOVÉ: NAČTENÍ Z PAMĚTI TELEFONU ---
+        // 1. NAČTENÍ Z PAMĚTI PŘI STARTU
         val prefs = getSharedPreferences("UniTrackPrefs", MODE_PRIVATE)
         loggedInPbToken = prefs.getString("pbToken", "") ?: ""
         loggedInUserId = prefs.getString("userId", "") ?: ""
@@ -53,13 +45,10 @@ class MainActivity : ComponentActivity() {
         if (loggedInPbToken.isNotEmpty()) {
             statusText = "✅ Přihlášen jako: $savedName"
         }
-        // ---------------------------------------
+
         setContent {
             UniTrack2Theme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     MainScreen(
                         status = statusText,
                         onMicrosoftClick = { startOAuthLogin("oidc") },
@@ -69,40 +58,26 @@ class MainActivity : ComponentActivity() {
                             } else {
                                 statusText = "Otevírám Stravu..."
                                 val stravaUrl = "https://www.strava.com/oauth/mobile/authorize?client_id=182093&response_type=code&redirect_uri=$redirectUri&scope=activity:read_all&state=strava"
-                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(stravaUrl))
-                                startActivity(browserIntent)
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(stravaUrl)))
                             }
                         },
                         onSyncClick = {
-                            if (loggedInPbToken.isEmpty()) {
-                                statusText = "Zatím nejsi přihlášený!"
-                                return@MainScreen
-                            }
-                            statusText = "Stahuji běhy z backendu..."
-
+                            if (loggedInPbToken.isEmpty()) return@MainScreen
+                            statusText = "Stahuji běhy..."
                             lifecycleScope.launch {
                                 val sync = pbClient.triggerStravaSync(loggedInPbToken)
                                 val fetchedActs = pbClient.getUserActivities(loggedInPbToken, loggedInUserId)
-
                                 withContext(Dispatchers.Main) {
                                     activitiesList = fetchedActs
-                                    if (sync != null) {
-                                        statusText = "✅ Hotovo! Server uložil ${sync.saved} nových běhů z ${sync.total}."
-                                    } else {
-                                        statusText = "Načteno ${fetchedActs.size} běhů z databáze."
-                                    }
+                                    statusText = if (sync != null) "✅ Hotovo! Uloženo ${sync.saved} běhů." else "Načteno z DB."
                                 }
                             }
                         },
-                        // ... (pod onSyncClick)
                         onLogoutClick = {
-                            // 1. Vymažeme proměnné v aplikaci
                             loggedInPbToken = ""
                             loggedInUserId = ""
                             activitiesList = emptyList()
                             statusText = "Stav: Nepřihlášen"
-
-                            // 2. Vymažeme paměť telefonu
                             getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().clear().apply()
                         },
                         activities = activitiesList
@@ -113,37 +88,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startOAuthLogin(providerName: String) {
-        statusText = "Připojuji se k serveru pro $providerName..."
         currentProvider = providerName
-
         lifecycleScope.launch {
             val provider = pbClient.getAuthProvider(providerName)
-
             withContext(Dispatchers.Main) {
                 if (provider != null) {
-                    statusText = "Otevírám prohlížeč pro $providerName..."
                     currentCodeVerifier = provider.codeVerifier
-
-                    val rawUrl = provider.authUrl + redirectUri
-                    val originalUri = Uri.parse(rawUrl)
-                    val cleanUriBuilder = originalUri.buildUpon().clearQuery()
-
-                    for (paramName in originalUri.queryParameterNames) {
-                        var paramValue = originalUri.getQueryParameter(paramName)
-                        if (currentProvider == "strava" && paramName == "scope") {
-                            paramValue = "profile:read_all,activity:read_all"
-                        }
-                        cleanUriBuilder.appendQueryParameter(paramName, paramValue)
+                    val cleanUri = Uri.parse(provider.authUrl + redirectUri).buildUpon().clearQuery()
+                    Uri.parse(provider.authUrl + redirectUri).queryParameterNames.forEach {
+                        cleanUri.appendQueryParameter(it, if (it == "scope" && providerName == "strava") "profile:read_all,activity:read_all" else Uri.parse(provider.authUrl + redirectUri).getQueryParameter(it))
                     }
-
-                    try {
-                        val browserIntent = Intent(Intent.ACTION_VIEW, cleanUriBuilder.build())
-                        startActivity(browserIntent)
-                    } catch (e: Exception) {
-                        statusText = "Chyba: Nepodařilo se otevřít prohlížeč."
-                    }
-                } else {
-                    statusText = "Chyba: Provider nebyl nalezen."
+                    startActivity(Intent(Intent.ACTION_VIEW, cleanUri.build()))
                 }
             }
         }
@@ -151,45 +106,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-
-        val uri = intent.data
-        if (uri != null && uri.scheme == "unitrack" && uri.host == "oauth2") {
-            val code = uri.getQueryParameter("code")
+        val uri = intent.data ?: return
+        if (uri.scheme == "unitrack" && uri.host == "oauth2") {
+            val code = uri.getQueryParameter("code") ?: return
             val state = uri.getQueryParameter("state")
 
-            if (code != null) {
-                lifecycleScope.launch {
-                    if (state == "strava") {
-                        // Návrat ze Stravy
-                        withContext(Dispatchers.Main) { statusText = "Předávám Stravu backendu..." }
-                        val success = pbClient.linkStravaWithCode(loggedInPbToken, code)
-                        withContext(Dispatchers.Main) {
-                            statusText = if (success) "✅ Strava úspěšně připojena a zamčena!"
-                            else "❌ Backend odmítl propojení Stravy."
-                        }
-                    } else {
-                        // Návrat z Microsoftu
-                        withContext(Dispatchers.Main) { statusText = "Ověřuji Microsoft přihlášení..." }
-                        val authResponse = pbClient.authWithOAuth2(currentProvider, code, currentCodeVerifier, redirectUri)
-
-                        // ... (uvnitř scénáře 2 návratu z Microsoftu)
-                        withContext(Dispatchers.Main) {
-                            if (authResponse != null) {
-                                loggedInPbToken = authResponse.token
-                                loggedInUserId = authResponse.record.id
-                                statusText = "✅ Přihlášen přes Microsoft jako: ${authResponse.record.name}"
-
-                                // --- NOVÉ: ULOŽENÍ DO PAMĚTI TELEFONU ---
-                                getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().apply {
-                                    putString("pbToken", loggedInPbToken)
-                                    putString("userId", loggedInUserId)
-                                    putString("userName", authResponse.record.name)
-                                    apply() // Uloží data na pozadí
-                                }
-                                // ---------------------------------------
-
-                            } else {
-                                statusText = "❌ Přihlášení přes Microsoft selhalo."
+            lifecycleScope.launch {
+                if (state == "strava") {
+                    val success = pbClient.linkStravaWithCode(loggedInPbToken, code)
+                    withContext(Dispatchers.Main) { statusText = if (success) "✅ Strava připojena!" else "❌ Chyba Stravy." }
+                } else {
+                    val auth = pbClient.authWithOAuth2(currentProvider, code, currentCodeVerifier, redirectUri)
+                    withContext(Dispatchers.Main) {
+                        if (auth != null) {
+                            loggedInPbToken = auth.token
+                            loggedInUserId = auth.record.id
+                            statusText = "✅ Přihlášen jako: ${auth.record.name}"
+                            getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().apply {
+                                putString("pbToken", auth.token)
+                                putString("userId", auth.record.id)
+                                putString("userName", auth.record.name)
+                                apply()
                             }
                         }
                     }
@@ -200,63 +137,24 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainScreen(
-    status: String,
-    onMicrosoftClick: () -> Unit,
-    onStravaClick: () -> Unit,
-    onSyncClick: () -> Unit,
-    onLogoutClick: () -> Unit, // NOVÝ PARAMETR
-    activities: List<ActivityRecord>
-) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+fun MainScreen(status: String, onMicrosoftClick: () -> Unit, onStravaClick: () -> Unit, onSyncClick: () -> Unit, onLogoutClick: () -> Unit, activities: List<ActivityRecord>) {
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = status, fontSize = 16.sp, modifier = Modifier.padding(bottom = 16.dp))
-
-        Button(onClick = onMicrosoftClick, modifier = Modifier.fillMaxWidth()) {
-            Text("1. Přihlásit přes Microsoft")
-        }
+        Button(onClick = onMicrosoftClick, modifier = Modifier.fillMaxWidth()) { Text("1. Přihlásit přes Microsoft") }
         Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = onStravaClick, modifier = Modifier.fillMaxWidth()) {
-            Text("2. Propojit se Stravou")
-        }
+        Button(onClick = onStravaClick, modifier = Modifier.fillMaxWidth()) { Text("2. Propojit se Stravou") }
         Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = onSyncClick, modifier = Modifier.fillMaxWidth()) {
-            Text("3. Stáhnout a zobrazit mé běhy")
-        }
-
+        Button(onClick = onSyncClick, modifier = Modifier.fillMaxWidth()) { Text("3. Synchronizovat běhy") }
         Spacer(modifier = Modifier.height(8.dp))
-
-        // NOVÉ TLAČÍTKO PRO ODHLÁŠENÍ (červené)
-        Button(
-            onClick = onLogoutClick,
-            modifier = Modifier.fillMaxWidth(),
-            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-        ) {
-            Text("Odhlásit se")
-        }
-
+        Button(onClick = onLogoutClick, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Odhlásit se") }
         Spacer(modifier = Modifier.height(16.dp))
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(activities) { act ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
+                Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(text = act.name, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
-                        val distanceKm = String.format(Locale.US, "%.2f", act.distance / 1000.0)
-                        val mins = act.duration / 60
-                        val secs = act.duration % 60
-                        val timeFormatted = String.format(Locale.US, "%d:%02d", mins, secs)
-
-                        Text(text = "Délka: $distanceKm km | Čas: $timeFormatted", fontSize = 14.sp)
-                        Text(text = "Datum: ${act.start_date.substring(0, 10)}", fontSize = 12.sp)
+                        Text(text = "Délka: ${String.format("%.2f", act.distance / 1000.0)} km | Čas: ${act.duration / 60}:${String.format("%02d", act.duration % 60)}", fontSize = 14.sp)
+                        Text(text = "Datum: ${act.start_date.take(10)}", fontSize = 12.sp)
                     }
                 }
             }
