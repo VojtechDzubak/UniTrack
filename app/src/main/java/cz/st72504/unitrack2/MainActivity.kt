@@ -526,7 +526,6 @@ fun MyResultsView(
     val totalMinutes = activities.sumOf { it.duration } / 60
     val totalHours = totalMinutes / 60
     val remainingMinutes = totalMinutes % 60
-    val totalActivities = activities.size
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -578,13 +577,14 @@ fun MyResultsView(
 
         Spacer(modifier = Modifier.height(24.dp))
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            ClickableStatCard(label = "LVL a počet XP", value = "1 (0/100 XP)", modifier = Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatCard(label = "Počet mých KM", value = String.format(Locale.US, "%.2f", totalKm), modifier = Modifier.weight(1f))
-                StatCard(label = "Celková doba mé aktivity", value = "${totalHours}h ${remainingMinutes}m", modifier = Modifier.weight(1f))
+                ClickableStatCard(label = "Pořadí", value = "N/A", modifier = Modifier.weight(1f))
+                ClickableStatCard(label = "Odznaky", value = "0/0", modifier = Modifier.weight(1f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatCard(label = "Počet mých aktivit", value = totalActivities.toString(), modifier = Modifier.weight(1f))
-                StatCard(label = "Úroveň", value = "N/A", modifier = Modifier.weight(1f))
+                ClickableStatCard(label = "Celková vzdálenost", value = String.format(Locale.US, "%.2f km", totalKm), modifier = Modifier.weight(1f))
+                ClickableStatCard(label = "Celkový čas", value = "${totalHours}h ${remainingMinutes}m", modifier = Modifier.weight(1f))
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
@@ -632,15 +632,15 @@ fun MyResultsView(
 }
 
 @Composable
-fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
+fun ClickableStatCard(label: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
     Card(
-        modifier = modifier.aspectRatio(1f),
+        modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
