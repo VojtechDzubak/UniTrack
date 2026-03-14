@@ -18,16 +18,15 @@ data class AuthMethodsResponse(val authProviders: List<AuthProvider>)
 data class AuthProvider(val name: String, val authUrl: String, val codeVerifier: String, val state: String)
 
 data class AuthResponse(val token: String, val record: UserRecord)
-// PŮVODNÍ: data class UserRecord(val id: String, val name: String, val email: String)
 
-// NOVÁ VERZE (přidali jsme team a public):
 data class UserRecord(
     val id: String,
     val name: String,
     val email: String,
     val team: String?,
     val public: Boolean?,
-    val strava_athlete_id: String? // Přidáno: ID pro kontrolu propojení se Stravou
+    val avatar: String?,
+    val strava_athlete_id: String?
 )
 
 data class SyncResponse(val message: String, val saved: Int, val total: Int)
@@ -212,16 +211,14 @@ class PocketBaseClient {
         }
     }
 
-    // Funkce pro aktualizaci jména, týmu a veřejnosti profilu
-    // Upravená funkce pro aktualizaci profilu VČETNĚ fotky
     suspend fun updateUserProfile(
         pbToken: String,
         userId: String,
         name: String,
         team: String,
         isPublic: Boolean,
-        imageBytes: ByteArray? = null // Volitelné pole pro data fotky
-    ): Boolean {
+        imageBytes: ByteArray? = null
+    ): UserRecord? {
         return suspendCancellableCoroutine { continuation ->
             try {
                 val builder = okhttp3.MultipartBody.Builder()
@@ -230,7 +227,6 @@ class PocketBaseClient {
                     .addFormDataPart("team", team)
                     .addFormDataPart("public", isPublic.toString())
 
-                // Pokud uživatel vybral fotku, přidáme ji do balíčku
                 if (imageBytes != null) {
                     builder.addFormDataPart(
                         "avatar",
@@ -242,6 +238,35 @@ class PocketBaseClient {
                 val request = Request.Builder()
                     .url("$baseUrl/api/collections/users/records/$userId")
                     .patch(builder.build())
+                    .addHeader("Authorization", "Bearer $pbToken")
+                    .build()
+
+                client.newCall(request).enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+                    override fun onResponse(call: Call, response: Response) {
+                        val responseBody = response.body?.string()
+                        if (response.isSuccessful && responseBody != null) {
+                            val updatedRecord = gson.fromJson(responseBody, UserRecord::class.java)
+                            if (continuation.isActive) continuation.resume(updatedRecord)
+                        } else {
+                            if (continuation.isActive) continuation.resume(null)
+                        }
+                    }
+                })
+            } catch (e: Exception) {
+                if (continuation.isActive) continuation.resume(null)
+            }
+        }
+    }
+
+    suspend fun deleteUser(pbToken: String, userId: String): Boolean {
+        return suspendCancellableCoroutine { continuation ->
+            try {
+                val request = Request.Builder()
+                    .url("$baseUrl/api/collections/users/records/$userId")
+                    .delete()
                     .addHeader("Authorization", "Bearer $pbToken")
                     .build()
 
@@ -259,11 +284,6 @@ class PocketBaseClient {
         }
     }
 
-
-    // 1. Zkontroluj, zda máš tuto třídu nahoře v souboru
-    data class SyncResponse(val message: String, val saved: Int, val total: Int)
-
-    // 2. Uvnitř třídy PocketBaseClient přejmenuj (nebo přidej) tuto funkci:
     suspend fun triggerSync(pbToken: String): SyncResponse? {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -273,7 +293,6 @@ class PocketBaseClient {
                     .addHeader("Authorization", "Bearer $pbToken")
                     .build()
 
-                // OPRAVA: Musíme definovat proměnnou 'call'
                 val call = client.newCall(request)
 
                 call.enqueue(object : Callback {
@@ -294,8 +313,6 @@ class PocketBaseClient {
                         }
                     }
                 })
-
-                // Teď už ví, co je to 'call'
                 continuation.invokeOnCancellation { call.cancel() }
             } catch (e: Exception) {
                 if (continuation.isActive) continuation.resume(null)
