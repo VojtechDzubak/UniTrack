@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
     private var userTeam by mutableStateOf("")
     private var userIsPublic by mutableStateOf(true)
     private var userAvatarUrl by mutableStateOf("")
+    private var userStats by mutableStateOf<UserStatistics?>(null)
 
     private var isStravaLinked by mutableStateOf(false)
     private var loggedInPbToken by mutableStateOf("")
@@ -85,6 +86,7 @@ class MainActivity : ComponentActivity() {
         if (loggedInPbToken.isNotEmpty()) {
             statusText = "✅ Přihlášen jako: $userName"
             if (userTeam.isEmpty()) showRegistrationForm = true
+            fetchUserStats()
         }
 
         setContent {
@@ -115,6 +117,7 @@ class MainActivity : ComponentActivity() {
                             onTabChange = { activeTab = it },
                             showRegistration = showRegistrationForm,
                             activities = activitiesList,
+                            userStats = userStats,
                             onMicrosoftClick = { startOAuthLogin("oidc") },
                             onSaveProfile = { name, team, isPublic, avatarBytes -> saveProfile(name, team, isPublic, avatarBytes) },
                             userName = userName,
@@ -126,6 +129,17 @@ class MainActivity : ComponentActivity() {
                             snackbarHostState = snackbarHostState
                         )
                     }
+                }
+            }
+        }
+    }
+    
+    private fun fetchUserStats() {
+        if (loggedInPbToken.isNotEmpty() && loggedInUserId.isNotEmpty()) {
+            lifecycleScope.launch {
+                val stats = pbClient.getUserStatistics(loggedInPbToken, loggedInUserId)
+                withContext(Dispatchers.Main) {
+                    userStats = stats
                 }
             }
         }
@@ -168,6 +182,7 @@ class MainActivity : ComponentActivity() {
             val fetchedActs = pbClient.getUserActivities(loggedInPbToken, loggedInUserId)
             withContext(Dispatchers.Main) {
                 activitiesList = fetchedActs
+                fetchUserStats()
                 val message = if (sync != null) "Hotovo! Uloženo ${sync.saved} nových aktivit." else "Načteno z DB."
                 snackbarHostState.showSnackbar(message)
             }
@@ -249,6 +264,7 @@ class MainActivity : ComponentActivity() {
         isStravaLinked = false
         showRegistrationForm = false
         showSettingsScreen = false
+        userStats = null
         statusText = "Stav: Nepřihlášen"
         getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().clear().apply()
     }
@@ -293,6 +309,8 @@ class MainActivity : ComponentActivity() {
 
                             if (auth.record.team.isNullOrEmpty()) {
                                 showRegistrationForm = true
+                            } else {
+                                fetchUserStats()
                             }
 
                             prefs.edit().apply {
@@ -324,6 +342,7 @@ fun MainScreen(
     onTabChange: (String) -> Unit,
     showRegistration: Boolean,
     activities: List<ActivityRecord>,
+    userStats: UserStatistics?,
     onMicrosoftClick: () -> Unit,
     onSaveProfile: (String, String, Boolean, ByteArray?) -> Unit,
     userName: String,
@@ -377,6 +396,7 @@ fun MainScreen(
                         onSyncClick = onSyncClick,
                         onSettingsClick = onSettingsClick,
                         activities = activities,
+                        userStats = userStats,
                         snackbarHostState = snackbarHostState
                     )
                 }
@@ -520,13 +540,9 @@ fun MyResultsView(
     onSyncClick: (snackbarHostState: SnackbarHostState) -> Unit,
     onSettingsClick: () -> Unit,
     activities: List<ActivityRecord>,
+    userStats: UserStatistics?,
     snackbarHostState: SnackbarHostState
 ) {
-    val totalKm = activities.sumOf { it.distance } / 1000.0
-    val totalMinutes = activities.sumOf { it.duration } / 60
-    val totalHours = totalMinutes / 60
-    val remainingMinutes = totalMinutes % 60
-
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
@@ -561,7 +577,6 @@ fun MyResultsView(
                     if (isStravaLinked) {
                         onSyncClick(snackbarHostState)
                     } else {
-                        // Use MainScreen's snackbarHostState directly
                         CoroutineScope(Dispatchers.Main).launch {
                             snackbarHostState.showSnackbar("Pro synchronizaci nejprve připojte Stravu v nastavení!")
                         }
@@ -579,7 +594,7 @@ fun MyResultsView(
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             StatCard(
                 label = "Úroveň - LVL a XP",
-                value = "1. LVL (0/100 XP)",
+                value = if (userStats != null) "${userStats.level}. LVL (${userStats.current_level_xp}/${userStats.xp_for_next_level} XP)" else "Načítání...",
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { /* TODO: Handle click */ }
             )
@@ -589,13 +604,13 @@ fun MyResultsView(
             ) {
                 StatCard(
                     label = "Celková vzdálenost",
-                    value = String.format(Locale.US, "%.2f km", totalKm),
+                    value = if (userStats != null) String.format(Locale.US, "%.2f km", userStats.total_distance / 1000) else "Načítání...",
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     onClick = {}
                 )
                 StatCard(
                     label = "Celková doba",
-                    value = "${totalHours}h ${remainingMinutes}m",
+                    value = if (userStats != null) "${userStats.total_time / 3600}h ${ (userStats.total_time % 3600) / 60}m" else "Načítání...",
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     onClick = {}
                 )
@@ -606,7 +621,7 @@ fun MyResultsView(
             ) {
                 StatCard(
                     label = "Umístění",
-                    value = "N/A",
+                    value = userStats?.rank?.toString() ?: "Načítání...",
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     onClick = {}
                 )

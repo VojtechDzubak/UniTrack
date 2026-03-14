@@ -29,6 +29,22 @@ data class UserRecord(
     val strava_athlete_id: String?
 )
 
+data class UserStatistics(
+    val id: String,
+    val rank: Int,
+    val name: String,
+    val team: String,
+    val avatar: String,
+    val total_distance: Double,
+    val total_time: Int,
+    val longest_run: Double,
+    val calories: Int,
+    val total_xp: Int,
+    val level: Int,
+    val current_level_xp: Int,
+    val xp_for_next_level: Int
+)
+
 data class SyncResponse(val message: String, val saved: Int, val total: Int)
 data class ActivityListResponse(val items: List<ActivityRecord>)
 data class ActivityRecord(
@@ -207,6 +223,44 @@ class PocketBaseClient {
                 continuation.invokeOnCancellation { call.cancel() }
             } catch (e: Exception) {
                 if (continuation.isActive) continuation.resume(emptyList())
+            }
+        }
+    }
+    
+    suspend fun getUserStatistics(pbToken: String, userId: String): UserStatistics? {
+        return suspendCancellableCoroutine { continuation ->
+            try {
+                val url = "$baseUrl/api/collections/user_statistics/records/$userId"
+                val request = Request.Builder()
+                    .url(url)
+                    .get()
+                    .addHeader("Authorization", "Bearer $pbToken")
+                    .build()
+    
+                val call = client.newCall(request)
+    
+                call.enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+    
+                    override fun onResponse(call: Call, response: Response) {
+                        val body = response.body?.string()
+                        if (response.isSuccessful && body != null) {
+                            try {
+                                val data = gson.fromJson(body, UserStatistics::class.java)
+                                if (continuation.isActive) continuation.resume(data)
+                            } catch (e: Exception) {
+                                if (continuation.isActive) continuation.resume(null)
+                            }
+                        } else {
+                            if (continuation.isActive) continuation.resume(null)
+                        }
+                    }
+                })
+                continuation.invokeOnCancellation { call.cancel() }
+            } catch (e: Exception) {
+                if (continuation.isActive) continuation.resume(null)
             }
         }
     }
