@@ -184,7 +184,7 @@ class PocketBaseClient {
                     .addHeader("Authorization", "Bearer $pbToken")
                     .build()
 
-                val call = client.newCall(request) // Přidat tento řádek
+                val call = client.newCall(request)
 
                 call.enqueue(object : Callback {
                     override fun onFailure(call: Call, e: IOException) {
@@ -207,6 +207,35 @@ class PocketBaseClient {
                 continuation.invokeOnCancellation { call.cancel() }
             } catch (e: Exception) {
                 if (continuation.isActive) continuation.resume(emptyList())
+            }
+        }
+    }
+
+    suspend fun getMe(pbToken: String, userId: String): UserRecord? {
+        return suspendCancellableCoroutine { continuation ->
+            try {
+                val request = Request.Builder()
+                    .url("$baseUrl/api/collections/users/records/$userId")
+                    .get()
+                    .addHeader("Authorization", "Bearer $pbToken")
+                    .build()
+
+                client.newCall(request).enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+                    override fun onResponse(call: Call, response: Response) {
+                        val responseBody = response.body?.string()
+                        if (response.isSuccessful && responseBody != null) {
+                            val userRecord = gson.fromJson(responseBody, UserRecord::class.java)
+                            if (continuation.isActive) continuation.resume(userRecord)
+                        } else {
+                            if (continuation.isActive) continuation.resume(null)
+                        }
+                    }
+                })
+            } catch (e: Exception) {
+                if (continuation.isActive) continuation.resume(null)
             }
         }
     }

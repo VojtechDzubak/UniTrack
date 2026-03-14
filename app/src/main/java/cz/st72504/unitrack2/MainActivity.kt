@@ -12,6 +12,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
+import kotlinx.coroutines.CoroutineScope
 import cz.st72504.unitrack2.ui.theme.UniTrack2Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -87,6 +90,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             UniTrack2Theme {
                 val isLoggedIn = loggedInPbToken.isNotEmpty()
+                val snackbarHostState = remember { SnackbarHostState() }
+
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     if (showSettingsScreen) {
                         SettingsScreen(
@@ -115,7 +120,10 @@ class MainActivity : ComponentActivity() {
                             userName = userName,
                             userTeam = userTeam,
                             userAvatarUrl = userAvatarUrl,
-                            onSettingsClick = { showSettingsScreen = true }
+                            isStravaLinked = isStravaLinked,
+                            onSyncClick = { triggerSync(snackbarHostState) },
+                            onSettingsClick = { showSettingsScreen = true },
+                            snackbarHostState = snackbarHostState
                         )
                     }
                 }
@@ -150,6 +158,20 @@ class MainActivity : ComponentActivity() {
         }
         val stravaUrl = "https://www.strava.com/oauth/mobile/authorize?client_id=182093&response_type=code&redirect_uri=$redirectUri&scope=activity:read_all&state=strava"
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(stravaUrl)))
+    }
+
+    private fun triggerSync(snackbarHostState: SnackbarHostState) {
+        if (loggedInPbToken.isEmpty()) return
+        statusText = "Stahuji běhy..."
+        lifecycleScope.launch {
+            val sync = pbClient.triggerStravaSync(loggedInPbToken)
+            val fetchedActs = pbClient.getUserActivities(loggedInPbToken, loggedInUserId)
+            withContext(Dispatchers.Main) {
+                activitiesList = fetchedActs
+                val message = if (sync != null) "Hotovo! Uloženo ${sync.saved} nových aktivit." else "Načteno z DB."
+                snackbarHostState.showSnackbar(message)
+            }
+        }
     }
 
     private fun saveProfile(name: String, team: String, isPublic: Boolean, avatarBytes: ByteArray?) {
@@ -212,8 +234,6 @@ class MainActivity : ComponentActivity() {
                 if (success) {
                     logout()
                     statusText = "Účet smazán."
-                } else {
-                    statusText = "❌ Chyba při mazání účtu."
                 }
             }
         }
@@ -248,8 +268,12 @@ class MainActivity : ComponentActivity() {
                     val success = pbClient.linkStravaWithCode(loggedInPbToken, code)
                     withContext(Dispatchers.Main) {
                         if (success) {
-                            statusText = "✅ Strava připojena!"
-                            isStravaLinked = true
+                            val user = pbClient.getMe(loggedInPbToken, loggedInUserId)
+                            if(user != null) {
+                                prefs.edit().putString("stravaId", user.strava_athlete_id ?: "").apply()
+                                statusText = "✅ Strava připojena!"
+                                isStravaLinked = true
+                            }
                         } else {
                             statusText = "❌ Chyba Stravy."
                         }
@@ -305,7 +329,10 @@ fun MainScreen(
     userName: String,
     userTeam: String,
     userAvatarUrl: String,
-    onSettingsClick: () -> Unit
+    isStravaLinked: Boolean,
+    onSyncClick: (snackbarHostState: SnackbarHostState) -> Unit,
+    onSettingsClick: () -> Unit,
+    snackbarHostState: SnackbarHostState
 ) {
     Scaffold(
         bottomBar = {
@@ -328,7 +355,8 @@ fun MainScreen(
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = UpceRed, selectedTextColor = UpceRed, indicatorColor = UpceRed.copy(alpha = 0.1f))
                 )
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             if (activeTab == "celkove") {
@@ -345,8 +373,11 @@ fun MainScreen(
                         userName = userName,
                         userTeam = userTeam,
                         userAvatarUrl = userAvatarUrl,
+                        isStravaLinked = isStravaLinked,
+                        onSyncClick = onSyncClick,
                         onSettingsClick = onSettingsClick,
-                        activities = activities
+                        activities = activities,
+                        snackbarHostState = snackbarHostState
                     )
                 }
             }
@@ -485,8 +516,11 @@ fun MyResultsView(
     userName: String,
     userTeam: String,
     userAvatarUrl: String,
+    isStravaLinked: Boolean,
+    onSyncClick: (snackbarHostState: SnackbarHostState) -> Unit,
     onSettingsClick: () -> Unit,
-    activities: List<ActivityRecord>
+    activities: List<ActivityRecord>,
+    snackbarHostState: SnackbarHostState
 ) {
     val totalKm = activities.sumOf { it.distance } / 1000.0
     val totalMinutes = activities.sumOf { it.duration } / 60
@@ -513,14 +547,35 @@ fun MyResultsView(
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
-        OutlinedButton(
-            onClick = onSettingsClick,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) {
-            Text("Nastavení", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            OutlinedButton(
+                onClick = onSettingsClick,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Text("Nastavení", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            }
+            Button(
+                onClick = {
+                    if (isStravaLinked) {
+                        onSyncClick(snackbarHostState)
+                    } else {
+                        // Use MainScreen's snackbarHostState directly
+                        CoroutineScope(Dispatchers.Main).launch {
+                            snackbarHostState.showSnackbar("Pro synchronizaci nejprve připojte Stravu v nastavení!")
+                        }
+                    }
+                },
+                enabled = isStravaLinked,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+            ) {
+                Text("Sync", fontWeight = FontWeight.Bold)
+            }
         }
+
         Spacer(modifier = Modifier.height(24.dp))
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -530,6 +585,47 @@ fun MyResultsView(
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 StatCard(label = "Počet mých aktivit", value = totalActivities.toString(), modifier = Modifier.weight(1f))
                 StatCard(label = "Úroveň", value = "N/A", modifier = Modifier.weight(1f))
+            }
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "NEDÁVNÉ BĚHY",
+            modifier = Modifier.padding(bottom = 12.dp),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
+            items(activities) { act ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(40.dp).background(UpceRed.copy(0.1f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) { Text("🏃") }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = act.name,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "${String.format("%.2f", act.distance / 1000.0)} km • ${act.duration / 60} min",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
     }
