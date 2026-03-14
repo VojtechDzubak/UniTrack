@@ -577,14 +577,45 @@ fun MyResultsView(
 
         Spacer(modifier = Modifier.height(24.dp))
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            ClickableStatCard(label = "LVL a počet XP", value = "1 (0/100 XP)", modifier = Modifier.fillMaxWidth())
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                ClickableStatCard(label = "Pořadí", value = "N/A", modifier = Modifier.weight(1f))
-                ClickableStatCard(label = "Odznaky", value = "0/0", modifier = Modifier.weight(1f))
+            StatCard(
+                label = "Úroveň - LVL a XP",
+                value = "1. LVL (0/100 XP)",
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { /* TODO: Handle click */ }
+            )
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                StatCard(
+                    label = "Celková vzdálenost",
+                    value = String.format(Locale.US, "%.2f km", totalKm),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    onClick = {}
+                )
+                StatCard(
+                    label = "Celková doba",
+                    value = "${totalHours}h ${remainingMinutes}m",
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    onClick = {}
+                )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                ClickableStatCard(label = "Celková vzdálenost", value = String.format(Locale.US, "%.2f km", totalKm), modifier = Modifier.weight(1f))
-                ClickableStatCard(label = "Celkový čas", value = "${totalHours}h ${remainingMinutes}m", modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                StatCard(
+                    label = "Umístění",
+                    value = "N/A",
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    onClick = {}
+                )
+                StatCard(
+                    label = "Počet odznaků",
+                    value = "N/A",
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    onClick = {}
+                )
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
@@ -631,16 +662,18 @@ fun MyResultsView(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClickableStatCard(label: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit = {}) {
+fun StatCard(label: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Card(
-        modifier = modifier.clickable(onClick = onClick),
+        onClick = onClick,
+        modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
