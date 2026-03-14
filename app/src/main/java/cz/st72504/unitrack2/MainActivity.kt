@@ -3,7 +3,6 @@ package cz.st72504.unitrack2
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -44,6 +43,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // --- NOVÉ: NAČTENÍ Z PAMĚTI TELEFONU ---
+        val prefs = getSharedPreferences("UniTrackPrefs", MODE_PRIVATE)
+        loggedInPbToken = prefs.getString("pbToken", "") ?: ""
+        loggedInUserId = prefs.getString("userId", "") ?: ""
+        val savedName = prefs.getString("userName", "") ?: ""
+
+        if (loggedInPbToken.isNotEmpty()) {
+            statusText = "✅ Přihlášen jako: $savedName"
+        }
+        // ---------------------------------------
         setContent {
             UniTrack2Theme {
                 Surface(
@@ -83,6 +93,17 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
+                        },
+                        // ... (pod onSyncClick)
+                        onLogoutClick = {
+                            // 1. Vymažeme proměnné v aplikaci
+                            loggedInPbToken = ""
+                            loggedInUserId = ""
+                            activitiesList = emptyList()
+                            statusText = "Stav: Nepřihlášen"
+
+                            // 2. Vymažeme paměť telefonu
+                            getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().clear().apply()
                         },
                         activities = activitiesList
                     )
@@ -151,11 +172,22 @@ class MainActivity : ComponentActivity() {
                         withContext(Dispatchers.Main) { statusText = "Ověřuji Microsoft přihlášení..." }
                         val authResponse = pbClient.authWithOAuth2(currentProvider, code, currentCodeVerifier, redirectUri)
 
+                        // ... (uvnitř scénáře 2 návratu z Microsoftu)
                         withContext(Dispatchers.Main) {
                             if (authResponse != null) {
                                 loggedInPbToken = authResponse.token
                                 loggedInUserId = authResponse.record.id
                                 statusText = "✅ Přihlášen přes Microsoft jako: ${authResponse.record.name}"
+
+                                // --- NOVÉ: ULOŽENÍ DO PAMĚTI TELEFONU ---
+                                getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().apply {
+                                    putString("pbToken", loggedInPbToken)
+                                    putString("userId", loggedInUserId)
+                                    putString("userName", authResponse.record.name)
+                                    apply() // Uloží data na pozadí
+                                }
+                                // ---------------------------------------
+
                             } else {
                                 statusText = "❌ Přihlášení přes Microsoft selhalo."
                             }
@@ -173,6 +205,7 @@ fun MainScreen(
     onMicrosoftClick: () -> Unit,
     onStravaClick: () -> Unit,
     onSyncClick: () -> Unit,
+    onLogoutClick: () -> Unit, // NOVÝ PARAMETR
     activities: List<ActivityRecord>
 ) {
     Column(
@@ -191,6 +224,17 @@ fun MainScreen(
         Spacer(modifier = Modifier.height(8.dp))
         Button(onClick = onSyncClick, modifier = Modifier.fillMaxWidth()) {
             Text("3. Stáhnout a zobrazit mé běhy")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // NOVÉ TLAČÍTKO PRO ODHLÁŠENÍ (červené)
+        Button(
+            onClick = onLogoutClick,
+            modifier = Modifier.fillMaxWidth(),
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+        ) {
+            Text("Odhlásit se")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
