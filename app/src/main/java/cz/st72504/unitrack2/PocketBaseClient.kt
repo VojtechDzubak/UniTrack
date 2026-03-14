@@ -45,6 +45,8 @@ data class UserStatistics(
     val xp_for_next_level: Int
 )
 
+data class UserStatisticsListResponse(val items: List<UserStatistics>)
+
 data class SyncResponse(val message: String, val saved: Int, val total: Int)
 data class ActivityListResponse(val items: List<ActivityRecord>)
 data class ActivityRecord(
@@ -261,6 +263,44 @@ class PocketBaseClient {
                 continuation.invokeOnCancellation { call.cancel() }
             } catch (e: Exception) {
                 if (continuation.isActive) continuation.resume(null)
+            }
+        }
+    }
+
+    suspend fun getAllUserStatistics(pbToken: String): List<UserStatistics> {
+        return suspendCancellableCoroutine { continuation ->
+            try {
+                val url = "$baseUrl/api/collections/user_statistics/records?sort=rank"
+                val request = Request.Builder()
+                    .url(url)
+                    .get()
+                    .addHeader("Authorization", "Bearer $pbToken")
+                    .build()
+    
+                val call = client.newCall(request)
+    
+                call.enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (continuation.isActive) continuation.resume(emptyList())
+                    }
+    
+                    override fun onResponse(call: Call, response: Response) {
+                        val body = response.body?.string()
+                        if (response.isSuccessful && body != null) {
+                            try {
+                                val data = gson.fromJson(body, UserStatisticsListResponse::class.java)
+                                if (continuation.isActive) continuation.resume(data.items)
+                            } catch (e: Exception) {
+                                if (continuation.isActive) continuation.resume(emptyList())
+                            }
+                        } else {
+                            if (continuation.isActive) continuation.resume(emptyList())
+                        }
+                    }
+                })
+                continuation.invokeOnCancellation { call.cancel() }
+            } catch (e: Exception) {
+                if (continuation.isActive) continuation.resume(emptyList())
             }
         }
     }

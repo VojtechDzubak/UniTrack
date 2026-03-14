@@ -59,6 +59,9 @@ class MainActivity : ComponentActivity() {
     private var userIsPublic by mutableStateOf(true)
     private var userAvatarUrl by mutableStateOf("")
     private var userStats by mutableStateOf<UserStatistics?>(null)
+    private var allUserStatsList by mutableStateOf<List<UserStatistics>>(emptyList())
+    private var showRankingScreen by mutableStateOf(false)
+
 
     private var isStravaLinked by mutableStateOf(false)
     private var loggedInPbToken by mutableStateOf("")
@@ -95,41 +98,62 @@ class MainActivity : ComponentActivity() {
                 val snackbarHostState = remember { SnackbarHostState() }
 
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    if (showSettingsScreen) {
-                        SettingsScreen(
-                            userName = userName,
-                            userTeam = userTeam,
-                            isPublic = userIsPublic,
-                            isStravaLinked = isStravaLinked,
-                            userAvatarUrl = userAvatarUrl,
-                            onSave = { newName, newIsPublic, avatarBytes ->
-                                updateProfile(newName, userTeam, newIsPublic, avatarBytes)
-                            },
-                            onLogout = { logout() },
-                            onDelete = { deleteAccount() },
-                            onBack = { showSettingsScreen = false },
-                            onLinkStrava = { openStravaBrowser() }
-                        )
-                    } else {
-                        MainScreen(
-                            isLoggedIn = isLoggedIn,
-                            activeTab = activeTab,
-                            onTabChange = { activeTab = it },
-                            showRegistration = showRegistrationForm,
-                            activities = activitiesList,
-                            userStats = userStats,
-                            onMicrosoftClick = { startOAuthLogin("oidc") },
-                            onSaveProfile = { name, team, isPublic, avatarBytes -> saveProfile(name, team, isPublic, avatarBytes) },
-                            userName = userName,
-                            userTeam = userTeam,
-                            userAvatarUrl = userAvatarUrl,
-                            isStravaLinked = isStravaLinked,
-                            onSyncClick = { triggerSync(snackbarHostState) },
-                            onSettingsClick = { showSettingsScreen = true },
-                            snackbarHostState = snackbarHostState
-                        )
+                    when {
+                        showRankingScreen -> {
+                            RankingScreen(
+                                allUsers = allUserStatsList,
+                                currentUserId = loggedInUserId,
+                                onBack = { showRankingScreen = false }
+                            )
+                        }
+                        showSettingsScreen -> {
+                            SettingsScreen(
+                                userName = userName,
+                                userTeam = userTeam,
+                                isPublic = userIsPublic,
+                                isStravaLinked = isStravaLinked,
+                                userAvatarUrl = userAvatarUrl,
+                                onSave = { newName, newIsPublic, avatarBytes ->
+                                    updateProfile(newName, userTeam, newIsPublic, avatarBytes)
+                                },
+                                onLogout = { logout() },
+                                onDelete = { deleteAccount() },
+                                onBack = { showSettingsScreen = false },
+                                onLinkStrava = { openStravaBrowser() }
+                            )
+                        }
+                        else -> {
+                            MainScreen(
+                                isLoggedIn = isLoggedIn,
+                                activeTab = activeTab,
+                                onTabChange = { activeTab = it },
+                                showRegistration = showRegistrationForm,
+                                activities = activitiesList,
+                                userStats = userStats,
+                                onMicrosoftClick = { startOAuthLogin("oidc") },
+                                onSaveProfile = { name, team, isPublic, avatarBytes -> saveProfile(name, team, isPublic, avatarBytes) },
+                                userName = userName,
+                                userTeam = userTeam,
+                                userAvatarUrl = userAvatarUrl,
+                                isStravaLinked = isStravaLinked,
+                                onSyncClick = { triggerSync(snackbarHostState) },
+                                onSettingsClick = { showSettingsScreen = true },
+                                onRankingClick = { fetchAllUserStatsAndShowRanking() },
+                                snackbarHostState = snackbarHostState
+                            )
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    private fun fetchAllUserStatsAndShowRanking() {
+        lifecycleScope.launch {
+            val stats = pbClient.getAllUserStatistics(loggedInPbToken)
+            withContext(Dispatchers.Main) {
+                allUserStatsList = stats
+                showRankingScreen = true
             }
         }
     }
@@ -351,6 +375,7 @@ fun MainScreen(
     isStravaLinked: Boolean,
     onSyncClick: (snackbarHostState: SnackbarHostState) -> Unit,
     onSettingsClick: () -> Unit,
+    onRankingClick: () -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
     Scaffold(
@@ -395,6 +420,7 @@ fun MainScreen(
                         isStravaLinked = isStravaLinked,
                         onSyncClick = onSyncClick,
                         onSettingsClick = onSettingsClick,
+                        onRankingClick = onRankingClick,
                         activities = activities,
                         userStats = userStats,
                         snackbarHostState = snackbarHostState
@@ -539,6 +565,7 @@ fun MyResultsView(
     isStravaLinked: Boolean,
     onSyncClick: (snackbarHostState: SnackbarHostState) -> Unit,
     onSettingsClick: () -> Unit,
+    onRankingClick: () -> Unit,
     activities: List<ActivityRecord>,
     userStats: UserStatistics?,
     snackbarHostState: SnackbarHostState
@@ -623,7 +650,7 @@ fun MyResultsView(
                     label = "Umístění",
                     value = userStats?.rank?.toString() ?: "Načítání...",
                     modifier = Modifier.weight(1f).fillMaxHeight(),
-                    onClick = {}
+                    onClick = onRankingClick
                 )
                 StatCard(
                     label = "Počet odznaků",
@@ -897,6 +924,98 @@ fun SettingsScreen(
                         Button(onClick = { showDeleteDialog = false }) { Text("Zrušit") }
                     }
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RankingScreen(
+    allUsers: List<UserStatistics>,
+    currentUserId: String,
+    onBack: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Žebříček") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Zpět") } }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            items(allUsers) { user ->
+                val isCurrentUser = user.id == currentUserId
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isCurrentUser) UpceRed.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isCurrentUser) UpceRed else MaterialTheme.colorScheme.outlineVariant
+                    )
+                ) {
+                    Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${user.rank}.",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.width(30.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        AsyncImage(
+                            model = if (user.avatar.isNotEmpty()) "https://unitrack.xdzubox.xyz/api/files/_pb_users_auth_/${user.id}/${user.avatar}" else "",
+                            contentDescription = "Avatar",
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentScale = ContentScale.Crop,
+                            placeholder = painterResource(id = R.drawable.ic_launcher_background),
+                            error = painterResource(id = R.drawable.ic_launcher_background)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = user.name,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = user.team,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "${user.level}. LVL",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = UpceRed
+                            )
+                            Text(
+                                text = String.format(Locale.US, "%.2f km", user.total_distance / 1000),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
     }
