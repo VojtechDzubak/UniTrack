@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -178,11 +179,26 @@ class MainActivity : ComponentActivity() {
                                 onSettingsClick = { showSettingsScreen = true },
                                 onRankingClick = { fetchAllUserStatsAndShowRanking() },
                                 onDistanceClick = { showDistanceStatsScreen = true },
-                                onTimeClick = { showTimeStatsScreen = true }
+                                onTimeClick = { showTimeStatsScreen = true },
+                                onRefreshClick = { refreshDataFromDb(snackbarHostState) },
+                                onSyncClick = { triggerSync(snackbarHostState) },
+                                snackbarHostState = snackbarHostState
                             )
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    private fun refreshDataFromDb(snackbarHostState: SnackbarHostState) {
+        if (loggedInPbToken.isEmpty()) return
+        lifecycleScope.launch {
+            val fetchedActs = pbClient.getUserActivities(loggedInPbToken, loggedInUserId)
+            withContext(Dispatchers.Main) {
+                activitiesList = fetchedActs
+                fetchUserStats()
+                snackbarHostState.showSnackbar("Data byla obnovena z databáze.")
             }
         }
     }
@@ -413,7 +429,10 @@ fun MainScreen(
     onSettingsClick: () -> Unit,
     onRankingClick: () -> Unit,
     onDistanceClick: () -> Unit,
-    onTimeClick: () -> Unit
+    onTimeClick: () -> Unit,
+    onRefreshClick: () -> Unit,
+    onSyncClick: () -> Unit,
+    snackbarHostState: SnackbarHostState
 ) {
     Scaffold(
         bottomBar = {
@@ -436,7 +455,8 @@ fun MainScreen(
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = UpceRed, selectedTextColor = UpceRed, indicatorColor = UpceRed.copy(alpha = 0.1f))
                 )
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(
             modifier = Modifier
@@ -463,7 +483,8 @@ fun MainScreen(
                         onDistanceClick = onDistanceClick,
                         onTimeClick = onTimeClick,
                         activities = activities,
-                        userStats = userStats
+                        userStats = userStats,
+                        onRefreshClick = onRefreshClick
                     )
                 }
             }
@@ -622,7 +643,8 @@ fun MyResultsView(
     onDistanceClick: () -> Unit,
     onTimeClick: () -> Unit,
     activities: List<ActivityRecord>,
-    userStats: UserStatistics?
+    userStats: UserStatistics?,
+    onRefreshClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -648,13 +670,27 @@ fun MyResultsView(
         }
         Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedButton(
-            onClick = onSettingsClick,
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Nastavení", fontWeight = FontWeight.Bold)
+            OutlinedButton(
+                onClick = onSettingsClick,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Text("Nastavení", fontWeight = FontWeight.Bold)
+            }
+            IconButton(
+                onClick = onRefreshClick,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Sync,
+                    contentDescription = "Synchronizovat"
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
