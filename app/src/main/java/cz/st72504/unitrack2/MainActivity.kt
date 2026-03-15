@@ -19,7 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,10 +36,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
+import com.github.tehras.charts.bar.BarChart
+import com.github.tehras.charts.bar.BarChartData
+import com.github.tehras.charts.bar.renderer.label.SimpleValueDrawer
+import com.github.tehras.charts.bar.renderer.xaxis.SimpleXAxisDrawer
+import com.github.tehras.charts.bar.renderer.yaxis.SimpleYAxisDrawer
 import cz.st72504.unitrack2.ui.theme.UniTrack2Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 // --- DESIGN SYSTÉM ---
@@ -61,6 +68,7 @@ class MainActivity : ComponentActivity() {
     private var userStats by mutableStateOf<UserStatistics?>(null)
     private var allUserStatsList by mutableStateOf<List<UserStatistics>>(emptyList())
     private var showRankingScreen by mutableStateOf(false)
+    private var showDistanceStatsScreen by mutableStateOf(false)
 
 
     private var isStravaLinked by mutableStateOf(false)
@@ -99,6 +107,15 @@ class MainActivity : ComponentActivity() {
 
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     when {
+                        showDistanceStatsScreen -> {
+                            DistanceStatsScreen(
+                                userStats = userStats,
+                                onBack = { showDistanceStatsScreen = false },
+                                pbClient = pbClient,
+                                loggedInPbToken = loggedInPbToken,
+                                loggedInUserId = loggedInUserId
+                            )
+                        }
                         showRankingScreen -> {
                             RankingScreen(
                                 allUsers = allUserStatsList,
@@ -139,7 +156,8 @@ class MainActivity : ComponentActivity() {
                                 userTeam = userTeam,
                                 userAvatarUrl = userAvatarUrl,
                                 onSettingsClick = { showSettingsScreen = true },
-                                onRankingClick = { fetchAllUserStatsAndShowRanking() }
+                                onRankingClick = { fetchAllUserStatsAndShowRanking() },
+                                onDistanceClick = { showDistanceStatsScreen = true }
                             )
                         }
                     }
@@ -157,7 +175,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun fetchUserStats() {
         if (loggedInPbToken.isNotEmpty() && loggedInUserId.isNotEmpty()) {
             lifecycleScope.launch {
@@ -309,7 +327,7 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.Main) {
                         if (success) {
                             val user = pbClient.getMe(loggedInPbToken, loggedInUserId)
-                            if(user != null) {
+                            if (user != null) {
                                 prefs.edit().putString("stravaId", user.strava_athlete_id ?: "").apply()
                                 statusText = "✅ Strava připojena!"
                                 isStravaLinked = true
@@ -373,6 +391,7 @@ fun MainScreen(
     userAvatarUrl: String,
     onSettingsClick: () -> Unit,
     onRankingClick: () -> Unit,
+    onDistanceClick: () -> Unit
 ) {
     Scaffold(
         bottomBar = {
@@ -397,10 +416,12 @@ fun MainScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier
-            .padding(padding)
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
             if (activeTab == "celkove") {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Zde budou celkové výsledky...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
@@ -417,6 +438,7 @@ fun MainScreen(
                         userAvatarUrl = userAvatarUrl,
                         onSettingsClick = onSettingsClick,
                         onRankingClick = onRankingClick,
+                        onDistanceClick = onDistanceClick,
                         activities = activities,
                         userStats = userStats
                     )
@@ -478,10 +500,11 @@ fun RegistrationForm(onSave: (String, String, Boolean, ByteArray?) -> Unit) {
         }
     }
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(24.dp)
-        .verticalScroll(rememberScrollState()),
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Dokončení profilu", fontSize = 26.sp, fontWeight = FontWeight.Black, color = UpceRed)
@@ -573,12 +596,15 @@ fun MyResultsView(
     userAvatarUrl: String,
     onSettingsClick: () -> Unit,
     onRankingClick: () -> Unit,
+    onDistanceClick: () -> Unit,
     activities: List<ActivityRecord>,
     userStats: UserStatistics?
 ) {
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = userName, fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
@@ -623,11 +649,11 @@ fun MyResultsView(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
-                    onClick = {}
+                    onClick = onDistanceClick
                 )
                 StatCard(
                     label = "Celková doba",
-                    value = if (userStats != null) "${userStats.total_time / 3600}h ${ (userStats.total_time % 3600) / 60}m" else "Načítání...",
+                    value = if (userStats != null) "${userStats.total_time / 3600}h ${(userStats.total_time % 3600) / 60}m" else "Načítání...",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
@@ -739,9 +765,11 @@ fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -786,7 +814,7 @@ fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
                 userStats.current_level_xp.toFloat() / userStats.xp_for_next_level.toFloat()
             } else 0f
             LinearProgressIndicator(
-                progress = progress,
+                progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(8.dp)
@@ -844,7 +872,7 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Nastavení") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Zpět") } }
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zpět") } }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -1059,7 +1087,7 @@ fun RankingScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Síň slávy") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Zpět") } }
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zpět") } }
             )
         },
         content = { padding ->
@@ -1144,7 +1172,7 @@ fun RankingScreen(
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                 }
+                                }
                             }
                             Spacer(Modifier.width(8.dp))
                             Column(horizontalAlignment = Alignment.End) {
@@ -1168,10 +1196,110 @@ fun RankingScreen(
                                 )
                             }
                         }
-                        Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
                     }
                 }
             }
         }
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DistanceStatsScreen(
+    userStats: UserStatistics?,
+    onBack: () -> Unit,
+    pbClient: PocketBaseClient,
+    loggedInPbToken: String,
+    loggedInUserId: String
+) {
+    var dailyActivities by remember { mutableStateOf<List<UserDailyActivity>>(emptyList()) }
+
+    LaunchedEffect(key1 = loggedInUserId) {
+        if (loggedInPbToken.isNotEmpty() && loggedInUserId.isNotEmpty()) {
+            val activities = pbClient.getUserDailyActivities(loggedInPbToken, loggedInUserId)
+            dailyActivities = activities
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Statistiky vzdálenosti") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zpět") } }
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                StatCard(
+                    label = "Průměrná vzdálenost",
+                    value = if (userStats != null) String.format(Locale.US, "%.2f km", userStats.avg_distance / 1000) else "Načítání...",
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    onClick = {}
+                )
+                StatCard(
+                    label = "Nejdelší vzdálenost",
+                    value = if (userStats != null) String.format(Locale.US, "%.2f km", userStats.longest_run / 1000) else "Načítání...",
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    onClick = {}
+                )
+            }
+            if (dailyActivities.isNotEmpty()) {
+                DailyActivityChart(dailyActivities)
+            }
+        }
+    }
+}
+
+@Composable
+fun DailyActivityChart(activities: List<UserDailyActivity>) {
+    val dayFormatter = DateTimeFormatter.ofPattern("EEE", Locale("cs", "CZ"))
+
+    val chartData = activities.map {
+        val date = LocalDate.parse(it.day.substring(0, 10))
+        BarChartData.Bar(
+            label = dayFormatter.format(date),
+            value = (it.total_distance / 1000).toFloat(),
+            color = UpceRed
+        )
+    }.reversed()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Posledních 7 dní",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            BarChart(
+                barChartData = BarChartData(bars = chartData),
+                modifier = Modifier
+                    .height(200.dp)
+                    .fillMaxWidth(),
+                xAxisDrawer = SimpleXAxisDrawer(),
+                yAxisDrawer = SimpleYAxisDrawer(),
+                labelDrawer = SimpleValueDrawer()
+            )
+        }
+    }
 }
