@@ -69,6 +69,8 @@ val ProgressTeal = Color(0xFF00CED1)
 
 class MainActivity : ComponentActivity() {
 
+    private lateinit var dataCache: DataCache
+
     private var statusText by mutableStateOf("Stav: Nepřihlášen")
     private var activeTab by mutableStateOf("moje_vysledky")
     private var showRegistrationForm by mutableStateOf(false)
@@ -81,7 +83,7 @@ class MainActivity : ComponentActivity() {
     private var showRankingScreen by mutableStateOf(false)
     private var showDistanceStatsScreen by mutableStateOf(false)
     private var showTimeStatsScreen by mutableStateOf(false)
-
+    private var dailyActivities by mutableStateOf<List<UserDailyActivity>>(emptyList())
 
     private var isStravaLinked by mutableStateOf(false)
     private var loggedInPbToken by mutableStateOf("")
@@ -94,6 +96,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        dataCache = DataCache(this)
 
         val prefs = getSharedPreferences("UniTrackPrefs", MODE_PRIVATE)
         loggedInPbToken = prefs.getString("pbToken", "") ?: ""
@@ -109,7 +112,8 @@ class MainActivity : ComponentActivity() {
         if (loggedInPbToken.isNotEmpty()) {
             statusText = "✅ Přihlášen jako: $userName"
             if (userTeam.isEmpty()) showRegistrationForm = true
-            fetchUserStats()
+            loadDataFromCache()
+            fetchData(forceRefresh = false)
         }
 
         setContent {
@@ -123,18 +127,14 @@ class MainActivity : ComponentActivity() {
                             DistanceStatsScreen(
                                 userStats = userStats,
                                 onBack = { showDistanceStatsScreen = false },
-                                pbClient = pbClient,
-                                loggedInPbToken = loggedInPbToken,
-                                loggedInUserId = loggedInUserId
+                                dailyActivities = dailyActivities
                             )
                         }
                         showTimeStatsScreen -> {
                             TimeStatsScreen(
                                 userStats = userStats,
                                 onBack = { showTimeStatsScreen = false },
-                                pbClient = pbClient,
-                                loggedInPbToken = loggedInPbToken,
-                                loggedInUserId = loggedInUserId
+                                dailyActivities = dailyActivities
                             )
                         }
                         showRankingScreen -> {
@@ -178,8 +178,14 @@ class MainActivity : ComponentActivity() {
                                 userAvatarUrl = userAvatarUrl,
                                 onSettingsClick = { showSettingsScreen = true },
                                 onRankingClick = { fetchAllUserStatsAndShowRanking() },
-                                onDistanceClick = { showDistanceStatsScreen = true },
-                                onTimeClick = { showTimeStatsScreen = true },
+                                onDistanceClick = {
+                                    fetchDailyActivities()
+                                    showDistanceStatsScreen = true
+                                },
+                                onTimeClick = {
+                                    fetchDailyActivities()
+                                    showTimeStatsScreen = true
+                                },
                                 onRefreshClick = { refreshDataFromDb(snackbarHostState) },
                                 onSyncClick = { triggerSync(snackbarHostState) },
                                 snackbarHostState = snackbarHostState
@@ -190,36 +196,91 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
+    private fun loadDataFromCache() {
+        userStats = dataCache.getUserStats()
+        activitiesList = dataCache.getActivities()
+        allUserStatsList = dataCache.getAllUserStats()
+        dailyActivities = dataCache.getDailyActivities()
+    }
+
+    private fun fetchData(forceRefresh: Boolean) {
+        fetchUserStats(forceRefresh)
+        fetchAllUserStats(forceRefresh)
+        fetchActivities(forceRefresh)
+    }
+
     private fun refreshDataFromDb(snackbarHostState: SnackbarHostState) {
         if (loggedInPbToken.isEmpty()) return
         lifecycleScope.launch {
-            val fetchedActs = pbClient.getUserActivities(loggedInPbToken, loggedInUserId)
+            fetchData(forceRefresh = true)
             withContext(Dispatchers.Main) {
-                activitiesList = fetchedActs
-                fetchUserStats()
                 snackbarHostState.showSnackbar("Data byla obnovena z databáze.")
             }
         }
     }
 
     private fun fetchAllUserStatsAndShowRanking() {
+        fetchAllUserStats(forceRefresh = false)
+        showRankingScreen = true
+    }
+
+    private fun fetchUserStats(forceRefresh: Boolean = false) {
+        if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
+        if (!forceRefresh && dataCache.getUserStats() != null) {
+            userStats = dataCache.getUserStats()
+            return
+        }
         lifecycleScope.launch {
-            val stats = pbClient.getAllUserStatistics(loggedInPbToken)
+            val stats = pbClient.getUserStatistics(loggedInPbToken, loggedInUserId)
             withContext(Dispatchers.Main) {
-                allUserStatsList = stats
-                showRankingScreen = true
+                userStats = stats
+                dataCache.saveUserStats(stats)
             }
         }
     }
 
-    private fun fetchUserStats() {
-        if (loggedInPbToken.isNotEmpty() && loggedInUserId.isNotEmpty()) {
-            lifecycleScope.launch {
-                val stats = pbClient.getUserStatistics(loggedInPbToken, loggedInUserId)
-                withContext(Dispatchers.Main) {
-                    userStats = stats
-                }
+    private fun fetchAllUserStats(forceRefresh: Boolean = false) {
+        if (loggedInPbToken.isEmpty()) return
+        if (!forceRefresh && dataCache.getAllUserStats().isNotEmpty()) {
+            allUserStatsList = dataCache.getAllUserStats()
+            return
+        }
+        lifecycleScope.launch {
+            val stats = pbClient.getAllUserStatistics(loggedInPbToken)
+            withContext(Dispatchers.Main) {
+                allUserStatsList = stats
+                dataCache.saveAllUserStats(stats)
+            }
+        }
+    }
+
+    private fun fetchActivities(forceRefresh: Boolean = false) {
+        if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
+        if (!forceRefresh && dataCache.getActivities().isNotEmpty()) {
+            activitiesList = dataCache.getActivities()
+            return
+        }
+        lifecycleScope.launch {
+            val acts = pbClient.getUserActivities(loggedInPbToken, loggedInUserId)
+            withContext(Dispatchers.Main) {
+                activitiesList = acts
+                dataCache.saveActivities(acts)
+            }
+        }
+    }
+    
+    private fun fetchDailyActivities(forceRefresh: Boolean = false) {
+        if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
+        if (!forceRefresh && dataCache.getDailyActivities().isNotEmpty()) {
+            dailyActivities = dataCache.getDailyActivities()
+            return
+        }
+        lifecycleScope.launch {
+            val daily = pbClient.getUserDailyActivities(loggedInPbToken, loggedInUserId)
+            withContext(Dispatchers.Main) {
+                dailyActivities = daily
+                dataCache.saveDailyActivities(daily)
             }
         }
     }
@@ -235,7 +296,7 @@ class MainActivity : ComponentActivity() {
                         apply()
                     }
                     val cleanUri = Uri.parse(provider.authUrl + redirectUri).buildUpon().clearQuery()
-                    Uri.parse(provider.authUrl + redirectUri).queryParameterNames.forEach { // The problem was a single parenthesis here.
+                    Uri.parse(provider.authUrl + redirectUri).queryParameterNames.forEach {
                         cleanUri.appendQueryParameter(it, if (it == "scope" && providerName == "strava") "profile:read_all,activity:read_all" else Uri.parse(provider.authUrl + redirectUri).getQueryParameter(it))
                     }
                     startActivity(Intent(Intent.ACTION_VIEW, cleanUri.build()))
@@ -258,10 +319,8 @@ class MainActivity : ComponentActivity() {
         statusText = "Stahuji běhy..."
         lifecycleScope.launch {
             val sync = pbClient.triggerStravaSync(loggedInPbToken)
-            val fetchedActs = pbClient.getUserActivities(loggedInPbToken, loggedInUserId)
             withContext(Dispatchers.Main) {
-                activitiesList = fetchedActs
-                fetchUserStats()
+                fetchData(forceRefresh = true)
                 val message = if (sync != null) "Hotovo! Uloženo ${sync.saved} nových aktivit." else "Načteno z DB."
                 snackbarHostState.showSnackbar(message)
             }
@@ -288,6 +347,7 @@ class MainActivity : ComponentActivity() {
                     userAvatarUrl = avatarUrl
                     showRegistrationForm = false
                     statusText = "✅ Profil úspěšně nastaven!"
+                    fetchData(forceRefresh = true)
                 } else {
                     statusText = "❌ Nepodařilo se uložit data na server."
                 }
@@ -313,6 +373,7 @@ class MainActivity : ComponentActivity() {
                     userAvatarUrl = avatarUrl
                     statusText = "✅ Profil aktualizován!"
                     showSettingsScreen = false // Navigate back
+                    fetchData(forceRefresh = true)
                 } else {
                     statusText = "❌ Chyba při aktualizaci profilu."
                 }
@@ -344,7 +405,10 @@ class MainActivity : ComponentActivity() {
         showRegistrationForm = false
         showSettingsScreen = false
         userStats = null
+        allUserStatsList = emptyList()
+        dailyActivities = emptyList()
         statusText = "Stav: Nepřihlášen"
+        dataCache.clearCache()
         getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().clear().apply()
     }
 
@@ -368,6 +432,7 @@ class MainActivity : ComponentActivity() {
                                 prefs.edit().putString("stravaId", user.strava_athlete_id ?: "").apply()
                                 statusText = "✅ Strava připojena!"
                                 isStravaLinked = true
+                                fetchData(forceRefresh = true)
                             }
                         } else {
                             statusText = "❌ Chyba Stravy."
@@ -402,7 +467,7 @@ class MainActivity : ComponentActivity() {
                                 remove("currentCodeVerifier")
                                 apply()
                             }
-                            fetchUserStats()
+                            fetchData(forceRefresh = true)
                         }
                     }
                 }
@@ -1271,19 +1336,9 @@ fun RankingScreen(
 fun DistanceStatsScreen(
     userStats: UserStatistics?,
     onBack: () -> Unit,
-    pbClient: PocketBaseClient,
-    loggedInPbToken: String,
-    loggedInUserId: String
+    dailyActivities: List<UserDailyActivity>
 ) {
     BackHandler { onBack() }
-    var dailyActivities by remember { mutableStateOf<List<UserDailyActivity>>(emptyList()) }
-
-    LaunchedEffect(key1 = loggedInUserId) {
-        if (loggedInPbToken.isNotEmpty() && loggedInUserId.isNotEmpty()) {
-            val activities = pbClient.getUserDailyActivities(loggedInPbToken, loggedInUserId)
-            dailyActivities = activities
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -1430,19 +1485,9 @@ fun DailyActivityChart(activities: List<UserDailyActivity>) {
 fun TimeStatsScreen(
     userStats: UserStatistics?,
     onBack: () -> Unit,
-    pbClient: PocketBaseClient,
-    loggedInPbToken: String,
-    loggedInUserId: String
+    dailyActivities: List<UserDailyActivity>
 ) {
     BackHandler { onBack() }
-    var dailyActivities by remember { mutableStateOf<List<UserDailyActivity>>(emptyList()) }
-
-    LaunchedEffect(key1 = loggedInUserId) {
-        if (loggedInPbToken.isNotEmpty() && loggedInUserId.isNotEmpty()) {
-            val activities = pbClient.getUserDailyActivities(loggedInPbToken, loggedInUserId)
-            dailyActivities = activities
-        }
-    }
 
     Scaffold(
         topBar = {
