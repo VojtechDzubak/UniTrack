@@ -36,18 +36,30 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
-import com.github.tehras.charts.bar.BarChart
-import com.github.tehras.charts.bar.BarChartData
-import com.github.tehras.charts.bar.renderer.label.SimpleValueDrawer
-import com.github.tehras.charts.bar.renderer.xaxis.SimpleXAxisDrawer
-import com.github.tehras.charts.bar.renderer.yaxis.SimpleYAxisDrawer
+import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
+import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
+import com.patrykandpatrick.vico.compose.chart.Chart
+import com.patrykandpatrick.vico.compose.chart.column.columnChart
+import com.patrykandpatrick.vico.core.chart.values.AxisValuesOverrider
+import androidx.compose.ui.graphics.toArgb
+import com.patrykandpatrick.vico.core.axis.AxisPosition
+import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
+import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
+import com.patrykandpatrick.vico.compose.chart.scroll.rememberChartScrollSpec
+import com.patrykandpatrick.vico.core.entry.entryOf
 import cz.st72504.unitrack2.ui.theme.UniTrack2Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.*
 import java.util.Locale
+
+
+
+
+
 
 // --- DESIGN SYSTÉM ---
 val UpceRed = Color(0xFFE32A22)
@@ -645,7 +657,7 @@ fun MyResultsView(
             ) {
                 StatCard(
                     label = "Celková vzdálenost",
-                    value = if (userStats != null) String.format(Locale.US, "%.2f km", userStats.total_distance / 1000) else "Načítání...",
+                    value = if (userStats != null) String.format(java.util.Locale.US, "%.2f km", userStats.total_distance / 1000) else "Načítání...",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
@@ -1172,7 +1184,7 @@ fun RankingScreen(
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                }
+                                 }
                             }
                             Spacer(Modifier.width(8.dp))
                             Column(horizontalAlignment = Alignment.End) {
@@ -1189,7 +1201,7 @@ fun RankingScreen(
                                 }
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = String.format(Locale.US, "%.1f km", user.total_distance / 1000),
+                                    text = String.format(java.util.Locale.US, "%.1f km", user.total_distance / 1000),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 16.sp,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -1244,7 +1256,7 @@ fun DistanceStatsScreen(
             ) {
                 StatCard(
                     label = "Průměrná vzdálenost",
-                    value = if (userStats != null) String.format(Locale.US, "%.2f km", userStats.avg_distance / 1000) else "Načítání...",
+                    value = if (userStats != null) String.format(java.util.Locale.US, "%.2f km", userStats.avg_distance / 1000) else "Načítání...",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
@@ -1252,7 +1264,7 @@ fun DistanceStatsScreen(
                 )
                 StatCard(
                     label = "Nejdelší vzdálenost",
-                    value = if (userStats != null) String.format(Locale.US, "%.2f km", userStats.longest_run / 1000) else "Načítání...",
+                    value = if (userStats != null) String.format(java.util.Locale.US, "%.2f km", userStats.longest_run / 1000) else "Načítání...",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
@@ -1266,20 +1278,53 @@ fun DistanceStatsScreen(
 
 @Composable
 fun DailyActivityChart(activities: List<UserDailyActivity>) {
-    val dayFormatter = DateTimeFormatter.ofPattern("EEE", Locale("cs", "CZ"))
+    val currentLocale = remember { java.util.Locale.getDefault() }
+    val dayFormatter = DateTimeFormatter.ofPattern("EEE", currentLocale)
+
     val today = LocalDate.now()
     val startDate = today.minusDays(6)
 
     val activitiesByDate = activities.associateBy { LocalDate.parse(it.day.substring(0, 10)) }
 
-    val chartBars = (0..6).map { i ->
+    val chartEntries = (0..6).map { i ->
         val date = startDate.plusDays(i.toLong())
         val distance = activitiesByDate[date]?.total_distance ?: 0
-        BarChartData.Bar(
-            label = dayFormatter.format(date).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
-            value = (distance.toDouble() / 1000).toFloat(),
-            color = UpceRed
-        )
+        entryOf(i.toFloat(), (distance.toDouble() / 1000).toFloat())
+    }
+
+    // --- 1. VÝPOČET DYNAMICKÉ OSY Y S REZERVOU ---
+    val maxDistanceKm = chartEntries.maxOfOrNull { it.y } ?: 0f
+    val targetMax = maxDistanceKm * 1.2f // 20% rezerva
+
+    // --- 2. ZAOKROUHLENÍ NA "HEZKÁ" ČÍSLA ---
+    val dynamicMaxY = when {
+        targetMax <= 0f -> 5f
+        targetMax <= 5f -> 5f
+        targetMax <= 10f -> 10f
+        targetMax <= 20f -> 20f
+        targetMax <= 50f -> 50f
+        else -> (kotlin.math.ceil(targetMax / 20.0) * 20).toFloat() // Nad 50 zaokrouhluje po 20
+    }
+
+    // --- 3. DYNAMICKÝ VÝPOČET KROKŮ MŘÍŽKY ---
+    val yStep = when {
+        dynamicMaxY <= 5f -> 1f
+        dynamicMaxY <= 10f -> 2f
+        dynamicMaxY <= 20f -> 5f
+        dynamicMaxY <= 50f -> 10f
+        else -> 20f
+    }
+    // Počet čar mřížky (včetně nuly)
+    val yAxisItemCount = (dynamicMaxY / yStep).toInt() + 1
+
+    val chartEntryModelProducer = remember { ChartEntryModelProducer() }
+    LaunchedEffect(chartEntries) {
+        chartEntryModelProducer.setEntries(chartEntries)
+    }
+
+    val bottomAxisValueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
+        val date = startDate.plusDays(value.toLong())
+        dayFormatter.format(date).replaceFirstChar { it.titlecase(currentLocale) }
     }
 
     Card(
@@ -1295,25 +1340,41 @@ fun DailyActivityChart(activities: List<UserDailyActivity>) {
                 modifier = Modifier.padding(bottom = 16.dp),
                 color = MaterialTheme.colorScheme.onSurface
             )
-            BarChart(
-                barChartData = BarChartData(bars = chartBars),
+            Chart(
+                chart = columnChart(
+                    columns = listOf(
+                        remember(ProgressTeal) {
+                            com.patrykandpatrick.vico.core.component.shape.LineComponent(
+                                color = ProgressTeal.toArgb(),
+                                thicknessDp = 24f,
+                                shape = com.patrykandpatrick.vico.core.component.shape.Shapes.roundedCornerShape(allPercent = 30)
+                            )
+                        }
+                    )
+                ).apply {
+                    axisValuesOverrider = com.patrykandpatrick.vico.core.chart.values.AxisValuesOverrider.fixed(
+                        minY = 0f,
+                        maxY = dynamicMaxY
+                    )
+                },
+                chartModelProducer = chartEntryModelProducer,
+                startAxis = rememberStartAxis(
+                    // --- OPRAVENÁ MŘÍŽKA ---
+                    // Přinutíme graf nakreslit přesný počet čar, aby padly na celá čísla
+                    itemPlacer = remember(yAxisItemCount) {
+                        com.patrykandpatrick.vico.core.axis.AxisItemPlacer.Vertical.default(
+                            maxItemCount = yAxisItemCount
+                        )
+                    },
+                    valueFormatter = { value, _ -> String.format(java.util.Locale.US, "%.0f", value) }
+                ),
+                bottomAxis = rememberBottomAxis(
+                    valueFormatter = bottomAxisValueFormatter
+                ),
+                chartScrollSpec = rememberChartScrollSpec(isScrollEnabled = false),
                 modifier = Modifier
                     .height(200.dp)
-                    .fillMaxWidth(),
-                xAxisDrawer = SimpleXAxisDrawer(
-                    axisLineColor = MaterialTheme.colorScheme.outlineVariant,
-                ),
-                yAxisDrawer = SimpleYAxisDrawer(
-                    labelRatio = 5,
-                    labelValueFormatter = { value -> String.format("%.0f", value) },
-                    axisLineColor = MaterialTheme.colorScheme.outlineVariant,
-                    labelTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                labelDrawer = SimpleValueDrawer(
-                    labelTextSize = 12.sp,
-                    drawLocation = SimpleValueDrawer.DrawLocation.Inside,
-                    labelTextColor = Color.White
-                )
+                    .fillMaxWidth()
             )
         }
     }
