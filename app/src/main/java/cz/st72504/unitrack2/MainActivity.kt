@@ -1259,9 +1259,8 @@ fun DistanceStatsScreen(
                     onClick = {}
                 )
             }
-            if (dailyActivities.isNotEmpty()) {
-                DailyActivityChart(dailyActivities)
-            }
+            // The chart will now be displayed even if dailyActivities is empty
+            DailyActivityChart(dailyActivities)
         }
     }
 }
@@ -1269,36 +1268,54 @@ fun DistanceStatsScreen(
 @Composable
 fun DailyActivityChart(activities: List<UserDailyActivity>) {
     val dayFormatter = DateTimeFormatter.ofPattern("EEE", Locale("cs", "CZ"))
+    val today = LocalDate.now()
+    val startDate = today.minusDays(6)
 
-    val chartData = activities.map {
-        val date = LocalDate.parse(it.day.substring(0, 10))
+    val activitiesByDate = activities.associateBy { LocalDate.parse(it.day.substring(0, 10)) }
+
+    val chartBars = (0..6).map { i ->
+        val date = startDate.plusDays(i.toLong())
+        val distance = activitiesByDate[date]?.total_distance ?: 0
         BarChartData.Bar(
-            label = dayFormatter.format(date),
-            value = (it.total_distance / 1000).toFloat(),
-            color = UpceRed
+            label = dayFormatter.format(date).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
+            value = (distance.toDouble() / 1000).toFloat(),
+            color = ProgressTeal
         )
-    }.reversed()
+    }.toMutableList()
+
+    // Add an invisible bar to force the Y-axis to go to 100
+    chartBars.add(BarChartData.Bar(label = "", value = 100f, color = Color.Transparent))
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                "Posledních 7 dní",
+                "Kilometry za posledních 7 dní",
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = 16.dp),
+                color = MaterialTheme.colorScheme.onSurface
             )
             BarChart(
-                barChartData = BarChartData(bars = chartData),
+                barChartData = BarChartData(bars = chartBars),
                 modifier = Modifier
                     .height(200.dp)
                     .fillMaxWidth(),
-                xAxisDrawer = SimpleXAxisDrawer(),
-                yAxisDrawer = SimpleYAxisDrawer(),
-                labelDrawer = SimpleValueDrawer()
+                xAxisDrawer = SimpleXAxisDrawer(
+                    axisLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                ),
+                yAxisDrawer = SimpleYAxisDrawer(
+                    labelRatio = 10,
+                    labelValueFormatter = { value -> value.toInt().toString() },
+                    axisLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                    labelTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                labelDrawer = SimpleValueDrawer(
+                    labelTextSize = 0.sp
+                )
             )
         }
     }
