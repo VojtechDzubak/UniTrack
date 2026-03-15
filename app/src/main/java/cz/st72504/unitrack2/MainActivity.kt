@@ -31,6 +31,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
@@ -46,9 +47,6 @@ val UpceRed = Color(0xFFE32A22)
 val UpceBlue = Color(0xFF009EE3)
 val UpceGreen = Color(0xFF00A651)
 val StravaOrange = Color(0xFFFC4C02)
-val LightBg = Color(0xFFF9FAFB)
-val DarkBackground = Color(0xFF1A1A2E)
-val LevelOrange = Color(0xFFFFA500)
 val ProgressTeal = Color(0xFF00CED1)
 
 class MainActivity : ComponentActivity() {
@@ -349,6 +347,7 @@ class MainActivity : ComponentActivity() {
                                 remove("currentCodeVerifier")
                                 apply()
                             }
+                            fetchUserStats()
                         }
                     }
                 }
@@ -398,10 +397,13 @@ fun MainScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Box(modifier = Modifier
+            .padding(padding)
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)) {
             if (activeTab == "celkove") {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Zde budou celkové výsledky...", color = Color.Gray, fontWeight = FontWeight.Bold)
+                    Text("Zde budou celkové výsledky...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
                 }
             } else {
                 if (!isLoggedIn) {
@@ -427,26 +429,30 @@ fun MainScreen(
 @Composable
 fun LoggedOutView(onMicrosoftClick: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("🔒", fontSize = 64.sp)
         Spacer(Modifier.height(16.dp))
-        Text("Tato sekce je uzamčena", fontSize = 22.sp, fontWeight = FontWeight.Black)
+        Text("Tato sekce je uzamčena", fontSize = 22.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground)
         Text(
             "Pro zobrazení statistik se musíš přihlásit.",
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            color = Color.Gray,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)
         )
         Button(
             onClick = onMicrosoftClick,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2F2F2F))
+            colors = ButtonDefaults.buttonColors(containerColor = UpceRed)
         ) {
-            Text("Přihlásit se přes Microsoft", fontWeight = FontWeight.ExtraBold)
+            Text("Přihlásit se přes Microsoft", fontWeight = FontWeight.ExtraBold, color = Color.White)
         }
     }
 }
@@ -472,9 +478,14 @@ fun RegistrationForm(onSave: (String, String, Boolean, ByteArray?) -> Unit) {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .padding(24.dp)
+        .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Text("Dokončení profilu", fontSize = 26.sp, fontWeight = FontWeight.Black, color = UpceRed)
-        Text("Nastav si údaje pro univerzitní výzvu", color = Color.Gray, modifier = Modifier.padding(bottom = 32.dp))
+        Text("Nastav si údaje pro univerzitní výzvu", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 32.dp))
 
         val imageBitmap = avatarBytes?.let {
             android.graphics.BitmapFactory.decodeByteArray(it, 0, it.size).asImageBitmap()
@@ -520,7 +531,9 @@ fun RegistrationForm(onSave: (String, String, Boolean, ByteArray?) -> Unit) {
                 value = team, onValueChange = {}, readOnly = true,
                 label = { Text("Vyber fakultu") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
             )
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -534,18 +547,21 @@ fun RegistrationForm(onSave: (String, String, Boolean, ByteArray?) -> Unit) {
             Switch(checked = isPublic, onCheckedChange = { isPublic = it }, colors = SwitchDefaults.colors(checkedThumbColor = UpceRed))
             Spacer(Modifier.width(12.dp))
             Column {
-                Text("Veřejný profil", fontWeight = FontWeight.Bold)
-                Text("Ostatní uvidí tvé jméno v žebříčku", fontSize = 12.sp, color = Color.Gray)
+                Text("Veřejný profil", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+                Text("Ostatní uvidí tvé jméno v žebříčku", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.weight(1f))
         Button(
             onClick = { if (name.isNotEmpty() && team.isNotEmpty()) onSave(name, team, isPublic, avatarBytes) },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .padding(top = 16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = UpceRed)
         ) {
-            Text("Uložit a začít běhat", fontWeight = FontWeight.ExtraBold)
+            Text("Uložit a začít běhat", fontWeight = FontWeight.ExtraBold, color = Color.White)
         }
     }
 }
@@ -560,7 +576,9 @@ fun MyResultsView(
     activities: List<ActivityRecord>,
     userStats: UserStatistics?
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = userName, fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
@@ -586,7 +604,7 @@ fun MyResultsView(
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            Text("Nastavení", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text("Nastavení", fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -602,13 +620,17 @@ fun MyResultsView(
                 StatCard(
                     label = "Celková vzdálenost",
                     value = if (userStats != null) String.format(Locale.US, "%.2f km", userStats.total_distance / 1000) else "Načítání...",
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
                     onClick = {}
                 )
                 StatCard(
                     label = "Celková doba",
                     value = if (userStats != null) "${userStats.total_time / 3600}h ${ (userStats.total_time % 3600) / 60}m" else "Načítání...",
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
                     onClick = {}
                 )
             }
@@ -619,13 +641,17 @@ fun MyResultsView(
                 StatCard(
                     label = "Umístění",
                     value = userStats?.rank?.toString() ?: "Načítání...",
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
                     onClick = onRankingClick
                 )
                 StatCard(
                     label = "Počet odznaků",
                     value = "N/A",
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
                     onClick = {}
                 )
             }
@@ -653,7 +679,9 @@ fun MyResultsView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
-                            modifier = Modifier.size(40.dp).background(UpceRed.copy(0.1f), CircleShape),
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(UpceRed.copy(0.1f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) { Text("🏃") }
                         Spacer(Modifier.width(12.dp))
@@ -688,13 +716,15 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier, onClic
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(text = value, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         }
     }
 }
@@ -706,10 +736,12 @@ fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkBackground),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -722,13 +754,13 @@ fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
                         text = "AKTUÁLNÍ ÚROVEŇ",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "Úroveň ${userStats?.level ?: "?"}",
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Black,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
                 Column(
@@ -739,7 +771,7 @@ fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
                         text = "ZKUŠENOSTI (XP)",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = if (userStats != null) "${userStats.current_level_xp} / ${userStats.xp_for_next_level} XP" else "Načítání...",
@@ -755,7 +787,10 @@ fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
             } else 0f
             LinearProgressIndicator(
                 progress = progress,
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
                 color = ProgressTeal,
                 trackColor = ProgressTeal.copy(alpha = 0.3f)
             )
@@ -766,7 +801,7 @@ fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
                 Text(
                     text = "Za každý naběhaný kilometr získáš 100 XP.",
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -815,12 +850,17 @@ fun SettingsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
-            modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()),
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // --- Profile Section ---
             Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
@@ -832,7 +872,10 @@ fun SettingsScreen(
                     Text(
                         "Nastavení profilu",
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     val imageBitmap = avatarBytes?.let {
@@ -885,21 +928,24 @@ fun SettingsScreen(
                     ) {
                         Switch(checked = currentIsPublic, onCheckedChange = { currentIsPublic = it })
                         Spacer(Modifier.width(8.dp))
-                        Text("Veřejný profil")
+                        Text("Veřejný profil", color = MaterialTheme.colorScheme.onSurface)
                     }
                     Spacer(Modifier.height(16.dp))
                     Button(
                         onClick = { onSave(currentName, currentIsPublic, avatarBytes) },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = UpceRed)
                     ) {
-                        Text("Uložit změny")
+                        Text("Uložit změny", color = Color.White)
                     }
                 }
             }
 
             // --- Connections Section ---
             Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
@@ -908,7 +954,10 @@ fun SettingsScreen(
                     Text(
                         "Připojení stravy",
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Button(
                         onClick = onLinkStrava,
@@ -918,22 +967,25 @@ fun SettingsScreen(
                         ),
                         enabled = !isStravaLinked
                     ) {
-                        Text(if (isStravaLinked) "Strava připojena ✅" else "Připojit Strava")
+                        Text(if (isStravaLinked) "Strava připojena ✅" else "Připojit Strava", color = Color.White)
                     }
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = onSyncClick,
                         enabled = isStravaLinked,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = UpceBlue)
                     ) {
-                        Text("Sync")
+                        Text("Synchronizovat", color = Color.White)
                     }
                 }
             }
 
             // --- Account Actions Section ---
             Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
@@ -942,24 +994,24 @@ fun SettingsScreen(
                     Text(
                         "Odhlášení a smazání profilu",
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     OutlinedButton(
                         onClick = onLogout,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurface // Explicitly set text color
-                        )
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Odhlásit se")
                     }
                     Spacer(Modifier.height(8.dp))
                     Button(
                         onClick = { showDeleteDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                        colors = ButtonDefaults.buttonColors(containerColor = UpceRed),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Smazat účet", color = Color.White) // Explicitly set text color
+                        Text("Smazat účet", color = Color.White)
                     }
                 }
             }
@@ -975,8 +1027,8 @@ fun SettingsScreen(
                                 onDelete()
                                 showDeleteDialog = false
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
-                        ) { Text("Smazat") }
+                            colors = ButtonDefaults.buttonColors(containerColor = UpceRed)
+                        ) { Text("Smazat", color = Color.White) }
                     },
                     dismissButton = {
                         Button(onClick = { showDeleteDialog = false }) { Text("Zrušit") }
@@ -1016,26 +1068,28 @@ fun RankingScreen(
                     Text(
                         "Nerozhoduje věk ani pohlaví. Zde jsou ti nejlepší z celé univerzity.",
                         fontSize = 16.sp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Row {
-                        Button(
-                            onClick = { selectedTab = 0 },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (selectedTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
-                            )
-                        ) {
-                            Text("Celá univerzita")
+                        if (selectedTab == 0) {
+                            Button(onClick = { selectedTab = 0 }) {
+                                Text("Celá univerzita")
+                            }
+                        } else {
+                            OutlinedButton(onClick = { selectedTab = 0 }) {
+                                Text("Celá univerzita")
+                            }
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = { selectedTab = 1 },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (selectedTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
-                            )
-                        ) {
-                            Text("Můj tým ($currentUserTeam)")
+                        if (selectedTab == 1) {
+                            Button(onClick = { selectedTab = 1 }) {
+                                Text("Můj tým ($currentUserTeam)")
+                            }
+                        } else {
+                            OutlinedButton(onClick = { selectedTab = 1 }) {
+                                Text("Můj tým ($currentUserTeam)")
+                            }
                         }
                     }
                 }
@@ -1059,7 +1113,8 @@ fun RankingScreen(
                                 text = "${user.rank}.",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 18.sp,
-                                modifier = Modifier.width(30.dp)
+                                modifier = Modifier.width(30.dp),
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -1089,30 +1144,31 @@ fun RankingScreen(
                                         fontSize = 12.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                }
+                                 }
                             }
                             Spacer(Modifier.width(8.dp))
                             Column(horizontalAlignment = Alignment.End) {
                                 Box(
                                     modifier = Modifier
                                         .background(
-                                            Color.DarkGray.copy(alpha = 0.5f),
+                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                                             RoundedCornerShape(4.dp)
                                         )
                                         .padding(vertical = 2.dp, horizontal = 6.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("LVL ${user.level}", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("LVL ${user.level}", fontSize = 10.sp, color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.Bold)
                                 }
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     text = String.format(Locale.US, "%.1f km", user.total_distance / 1000),
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
+                                    fontSize = 16.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }
-                        Divider(color = Color.Gray.copy(alpha = 0.2f), modifier = Modifier.padding(horizontal = 16.dp))
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
                     }
                 }
             }
