@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import coil.compose.AsyncImage
-import kotlinx.coroutines.CoroutineScope
 import cz.st72504.unitrack2.ui.theme.UniTrack2Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,6 +47,9 @@ val UpceBlue = Color(0xFF009EE3)
 val UpceGreen = Color(0xFF00A651)
 val StravaOrange = Color(0xFFFC4C02)
 val LightBg = Color(0xFFF9FAFB)
+val DarkBackground = Color(0xFF1A1A2E)
+val LevelOrange = Color(0xFFFFA500)
+val ProgressTeal = Color(0xFF00CED1)
 
 class MainActivity : ComponentActivity() {
 
@@ -103,6 +105,7 @@ class MainActivity : ComponentActivity() {
                             RankingScreen(
                                 allUsers = allUserStatsList,
                                 currentUserId = loggedInUserId,
+                                currentUserTeam = userTeam,
                                 onBack = { showRankingScreen = false }
                             )
                         }
@@ -119,7 +122,9 @@ class MainActivity : ComponentActivity() {
                                 onLogout = { logout() },
                                 onDelete = { deleteAccount() },
                                 onBack = { showSettingsScreen = false },
-                                onLinkStrava = { openStravaBrowser() }
+                                onLinkStrava = { openStravaBrowser() },
+                                onSyncClick = { triggerSync(snackbarHostState) },
+                                snackbarHostState = snackbarHostState
                             )
                         }
                         else -> {
@@ -135,11 +140,8 @@ class MainActivity : ComponentActivity() {
                                 userName = userName,
                                 userTeam = userTeam,
                                 userAvatarUrl = userAvatarUrl,
-                                isStravaLinked = isStravaLinked,
-                                onSyncClick = { triggerSync(snackbarHostState) },
                                 onSettingsClick = { showSettingsScreen = true },
-                                onRankingClick = { fetchAllUserStatsAndShowRanking() },
-                                snackbarHostState = snackbarHostState
+                                onRankingClick = { fetchAllUserStatsAndShowRanking() }
                             )
                         }
                     }
@@ -180,7 +182,7 @@ class MainActivity : ComponentActivity() {
                         apply()
                     }
                     val cleanUri = Uri.parse(provider.authUrl + redirectUri).buildUpon().clearQuery()
-                    Uri.parse(provider.authUrl + redirectUri).queryParameterNames.forEach {
+                    Uri.parse(provider.authUrl + redirectUri).queryParameterNames.forEach { // The problem was a single parenthesis here.
                         cleanUri.appendQueryParameter(it, if (it == "scope" && providerName == "strava") "profile:read_all,activity:read_all" else Uri.parse(provider.authUrl + redirectUri).getQueryParameter(it))
                     }
                     startActivity(Intent(Intent.ACTION_VIEW, cleanUri.build()))
@@ -333,8 +335,6 @@ class MainActivity : ComponentActivity() {
 
                             if (auth.record.team.isNullOrEmpty()) {
                                 showRegistrationForm = true
-                            } else {
-                                fetchUserStats()
                             }
 
                             prefs.edit().apply {
@@ -372,11 +372,8 @@ fun MainScreen(
     userName: String,
     userTeam: String,
     userAvatarUrl: String,
-    isStravaLinked: Boolean,
-    onSyncClick: (snackbarHostState: SnackbarHostState) -> Unit,
     onSettingsClick: () -> Unit,
     onRankingClick: () -> Unit,
-    snackbarHostState: SnackbarHostState
 ) {
     Scaffold(
         bottomBar = {
@@ -399,8 +396,7 @@ fun MainScreen(
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = UpceRed, selectedTextColor = UpceRed, indicatorColor = UpceRed.copy(alpha = 0.1f))
                 )
             }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             if (activeTab == "celkove") {
@@ -417,13 +413,10 @@ fun MainScreen(
                         userName = userName,
                         userTeam = userTeam,
                         userAvatarUrl = userAvatarUrl,
-                        isStravaLinked = isStravaLinked,
-                        onSyncClick = onSyncClick,
                         onSettingsClick = onSettingsClick,
                         onRankingClick = onRankingClick,
                         activities = activities,
-                        userStats = userStats,
-                        snackbarHostState = snackbarHostState
+                        userStats = userStats
                     )
                 }
             }
@@ -562,13 +555,10 @@ fun MyResultsView(
     userName: String,
     userTeam: String,
     userAvatarUrl: String,
-    isStravaLinked: Boolean,
-    onSyncClick: (snackbarHostState: SnackbarHostState) -> Unit,
     onSettingsClick: () -> Unit,
     onRankingClick: () -> Unit,
     activities: List<ActivityRecord>,
-    userStats: UserStatistics?,
-    snackbarHostState: SnackbarHostState
+    userStats: UserStatistics?
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -590,40 +580,20 @@ fun MyResultsView(
         }
         Spacer(modifier = Modifier.height(16.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            OutlinedButton(
-                onClick = onSettingsClick,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-            ) {
-                Text("Nastavení", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            }
-            Button(
-                onClick = {
-                    if (isStravaLinked) {
-                        onSyncClick(snackbarHostState)
-                    } else {
-                        CoroutineScope(Dispatchers.Main).launch {
-                            snackbarHostState.showSnackbar("Pro synchronizaci nejprve připojte Stravu v nastavení!")
-                        }
-                    }
-                },
-                enabled = isStravaLinked,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Text("Sync", fontWeight = FontWeight.Bold)
-            }
+        OutlinedButton(
+            onClick = onSettingsClick,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            Text("Nastavení", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            StatCard(
-                label = "Úroveň - LVL a XP",
-                value = if (userStats != null) "${userStats.level}. LVL (${userStats.current_level_xp}/${userStats.xp_for_next_level} XP)" else "Načítání...",
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { /* TODO: Handle click */ }
+            LevelStatCard(
+                userStats = userStats,
+                onClick = { /* TODO: Handle click for level card */ }
             )
             Row(
                 modifier = Modifier.height(IntrinsicSize.Max),
@@ -678,7 +648,10 @@ fun MyResultsView(
                     ),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                 ) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Box(
                             modifier = Modifier.size(40.dp).background(UpceRed.copy(0.1f), CircleShape),
                             contentAlignment = Alignment.Center
@@ -728,6 +701,80 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier, onClic
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkBackground),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(
+                    modifier = Modifier.weight(0.6f, fill = false)
+                ) {
+                    Text(
+                        text = "AKTUÁLNÍ ÚROVEŇ",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray
+                    )
+                    Text(
+                        text = "Úroveň ${userStats?.level ?: "?"}",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
+                }
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier.weight(0.4f, fill = false)
+                ) {
+                    Text(
+                        text = "ZKUŠENOSTI (XP)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray
+                    )
+                    Text(
+                        text = if (userStats != null) "${userStats.current_level_xp} / ${userStats.xp_for_next_level} XP" else "Načítání...",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ProgressTeal
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            val progress = if (userStats != null && userStats.xp_for_next_level > 0) {
+                userStats.current_level_xp.toFloat() / userStats.xp_for_next_level.toFloat()
+            } else 0f
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                color = ProgressTeal,
+                trackColor = ProgressTeal.copy(alpha = 0.3f)
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⚡", fontSize = 12.sp)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "Za každý naběhaný kilometr získáš 100 XP.",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun SettingsScreen(
     userName: String,
     userTeam: String,
@@ -738,7 +785,9 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     onDelete: () -> Unit,
     onBack: () -> Unit,
-    onLinkStrava: () -> Unit
+    onLinkStrava: () -> Unit,
+    onSyncClick: () -> Unit,
+    snackbarHostState: SnackbarHostState
 ) {
     var currentName by remember { mutableStateOf(userName) }
     var currentIsPublic by remember { mutableStateOf(isPublic) }
@@ -762,7 +811,8 @@ fun SettingsScreen(
                 title = { Text("Nastavení") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Zpět") } }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()),
@@ -870,6 +920,14 @@ fun SettingsScreen(
                     ) {
                         Text(if (isStravaLinked) "Strava připojena ✅" else "Připojit Strava")
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = onSyncClick,
+                        enabled = isStravaLinked,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Sync")
+                    }
                 }
             }
 
@@ -934,89 +992,130 @@ fun SettingsScreen(
 fun RankingScreen(
     allUsers: List<UserStatistics>,
     currentUserId: String,
+    currentUserTeam: String,
     onBack: () -> Unit
 ) {
+    var selectedTab by remember { mutableStateOf(0) }
+
+    val filteredUsers = if (selectedTab == 0) {
+        allUsers
+    } else {
+        allUsers.filter { it.team == currentUserTeam }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Žebříček") },
+                title = { Text("Síň slávy") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "Zpět") } }
             )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(allUsers) { user ->
-                val isCurrentUser = user.id == currentUserId
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isCurrentUser) UpceRed.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
-                    ),
-                    border = BorderStroke(
-                        1.dp,
-                        if (isCurrentUser) UpceRed else MaterialTheme.colorScheme.outlineVariant
+        },
+        content = { padding ->
+            Column(modifier = Modifier.padding(padding)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Nerozhoduje věk ani pohlaví. Zde jsou ti nejlepší z celé univerzity.",
+                        fontSize = 16.sp,
+                        color = Color.Gray
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row {
+                        Button(
+                            onClick = { selectedTab = 0 },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selectedTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Text("Celá univerzita")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { selectedTab = 1 },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (selectedTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Text("Můj tým ($currentUserTeam)")
+                        }
+                    }
+                }
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
-                    Row(
-                        Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${user.rank}.",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 18.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.width(30.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        AsyncImage(
-                            model = if (user.avatar.isNotEmpty()) "https://unitrack.xdzubox.xyz/api/files/_pb_users_auth_/${user.id}/${user.avatar}" else "",
-                            contentDescription = "Avatar",
+                    items(filteredUsers) { user ->
+                        val isCurrentUser = user.id == currentUserId
+                        Row(
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentScale = ContentScale.Crop,
-                            placeholder = painterResource(id = R.drawable.ic_launcher_background),
-                            error = painterResource(id = R.drawable.ic_launcher_background)
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
+                                .fillMaxWidth()
+                                .background(
+                                    if (isCurrentUser) UpceRed.copy(alpha = 0.1f) else Color.Transparent,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(vertical = 8.dp, horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = user.name,
+                                text = "${user.rank}.",
                                 fontWeight = FontWeight.Black,
-                                fontSize = 15.sp,
-                                color = MaterialTheme.colorScheme.onSurface
+                                fontSize = 18.sp,
+                                modifier = Modifier.width(30.dp)
                             )
-                            Text(
-                                text = user.team,
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                AsyncImage(
+                                    model = if (user.avatar.isNotEmpty()) "https://unitrack.xdzubox.xyz/api/files/_pb_users_auth_/${user.id}/${user.avatar}" else "",
+                                    contentDescription = "Avatar",
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentScale = ContentScale.Crop,
+                                    placeholder = painterResource(id = R.drawable.ic_launcher_background),
+                                    error = painterResource(id = R.drawable.ic_launcher_background)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = if (isCurrentUser) "${user.name} (Ty)" else user.name,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 15.sp,
+                                        color = if (isCurrentUser) UpceRed else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = user.team,
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Column(horizontalAlignment = Alignment.End) {
+                                Box(
+                                    modifier = Modifier
+                                        .background(
+                                            Color.DarkGray.copy(alpha = 0.5f),
+                                            RoundedCornerShape(4.dp)
+                                        )
+                                        .padding(vertical = 2.dp, horizontal = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("LVL ${user.level}", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = String.format(Locale.US, "%.1f km", user.total_distance / 1000),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
+                            }
                         }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                text = "${user.level}. LVL",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = UpceRed
-                            )
-                            Text(
-                                text = String.format(Locale.US, "%.2f km", user.total_distance / 1000),
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        Divider(color = Color.Gray.copy(alpha = 0.2f), modifier = Modifier.padding(horizontal = 16.dp))
                     }
                 }
             }
         }
-    }
+    )
 }
