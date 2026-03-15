@@ -39,6 +39,8 @@ data class UserStatistics(
     val total_time: Int,
     val longest_run: Double,
     val avg_distance: Double,
+    val avg_time: Double,
+    val longest_time: Int,
     val calories: Int,
     val total_xp: Int,
     val level: Int,
@@ -60,7 +62,8 @@ data class ActivityRecord(
 )
 data class UserDailyActivity(
     val day: String,
-    val total_distance: Double
+    val total_distance: Double,
+    val total_duration: Int
 )
 
 data class UserDailyActivityListResponse(val items: List<UserDailyActivity>)

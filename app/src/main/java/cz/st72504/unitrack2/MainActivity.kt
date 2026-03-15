@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,10 +56,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*
 import java.util.Locale
-
-
-
-
+import kotlin.math.ceil
 
 
 // --- DESIGN SYSTÉM ---
@@ -81,6 +79,7 @@ class MainActivity : ComponentActivity() {
     private var allUserStatsList by mutableStateOf<List<UserStatistics>>(emptyList())
     private var showRankingScreen by mutableStateOf(false)
     private var showDistanceStatsScreen by mutableStateOf(false)
+    private var showTimeStatsScreen by mutableStateOf(false)
 
 
     private var isStravaLinked by mutableStateOf(false)
@@ -128,6 +127,15 @@ class MainActivity : ComponentActivity() {
                                 loggedInUserId = loggedInUserId
                             )
                         }
+                        showTimeStatsScreen -> {
+                            TimeStatsScreen(
+                                userStats = userStats,
+                                onBack = { showTimeStatsScreen = false },
+                                pbClient = pbClient,
+                                loggedInPbToken = loggedInPbToken,
+                                loggedInUserId = loggedInUserId
+                            )
+                        }
                         showRankingScreen -> {
                             RankingScreen(
                                 allUsers = allUserStatsList,
@@ -169,7 +177,8 @@ class MainActivity : ComponentActivity() {
                                 userAvatarUrl = userAvatarUrl,
                                 onSettingsClick = { showSettingsScreen = true },
                                 onRankingClick = { fetchAllUserStatsAndShowRanking() },
-                                onDistanceClick = { showDistanceStatsScreen = true }
+                                onDistanceClick = { showDistanceStatsScreen = true },
+                                onTimeClick = { showTimeStatsScreen = true }
                             )
                         }
                     }
@@ -403,7 +412,8 @@ fun MainScreen(
     userAvatarUrl: String,
     onSettingsClick: () -> Unit,
     onRankingClick: () -> Unit,
-    onDistanceClick: () -> Unit
+    onDistanceClick: () -> Unit,
+    onTimeClick: () -> Unit
 ) {
     Scaffold(
         bottomBar = {
@@ -451,6 +461,7 @@ fun MainScreen(
                         onSettingsClick = onSettingsClick,
                         onRankingClick = onRankingClick,
                         onDistanceClick = onDistanceClick,
+                        onTimeClick = onTimeClick,
                         activities = activities,
                         userStats = userStats
                     )
@@ -609,6 +620,7 @@ fun MyResultsView(
     onSettingsClick: () -> Unit,
     onRankingClick: () -> Unit,
     onDistanceClick: () -> Unit,
+    onTimeClick: () -> Unit,
     activities: List<ActivityRecord>,
     userStats: UserStatistics?
 ) {
@@ -669,7 +681,7 @@ fun MyResultsView(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
-                    onClick = {}
+                    onClick = onTimeClick
                 )
             }
             Row(
@@ -864,6 +876,7 @@ fun SettingsScreen(
     onSyncClick: () -> Unit,
     snackbarHostState: SnackbarHostState
 ) {
+    BackHandler { onBack() }
     var currentName by remember { mutableStateOf(userName) }
     var currentIsPublic by remember { mutableStateOf(isPublic) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -1087,6 +1100,7 @@ fun RankingScreen(
     currentUserTeam: String,
     onBack: () -> Unit
 ) {
+    BackHandler { onBack() }
     var selectedTab by remember { mutableStateOf(0) }
 
     val filteredUsers = if (selectedTab == 0) {
@@ -1225,6 +1239,7 @@ fun DistanceStatsScreen(
     loggedInPbToken: String,
     loggedInUserId: String
 ) {
+    BackHandler { onBack() }
     var dailyActivities by remember { mutableStateOf<List<UserDailyActivity>>(emptyList()) }
 
     LaunchedEffect(key1 = loggedInUserId) {
@@ -1292,21 +1307,18 @@ fun DailyActivityChart(activities: List<UserDailyActivity>) {
         entryOf(i.toFloat(), (distance.toDouble() / 1000).toFloat())
     }
 
-    // --- 1. VÝPOČET DYNAMICKÉ OSY Y S REZERVOU ---
     val maxDistanceKm = chartEntries.maxOfOrNull { it.y } ?: 0f
-    val targetMax = maxDistanceKm * 1.2f // 20% rezerva
+    val targetMax = maxDistanceKm * 1.2f 
 
-    // --- 2. ZAOKROUHLENÍ NA "HEZKÁ" ČÍSLA ---
     val dynamicMaxY = when {
         targetMax <= 0f -> 5f
         targetMax <= 5f -> 5f
         targetMax <= 10f -> 10f
         targetMax <= 20f -> 20f
         targetMax <= 50f -> 50f
-        else -> (kotlin.math.ceil(targetMax / 20.0) * 20).toFloat() // Nad 50 zaokrouhluje po 20
+        else -> (ceil(targetMax / 20.0) * 20).toFloat()
     }
 
-    // --- 3. DYNAMICKÝ VÝPOČET KROKŮ MŘÍŽKY ---
     val yStep = when {
         dynamicMaxY <= 5f -> 1f
         dynamicMaxY <= 10f -> 2f
@@ -1314,7 +1326,6 @@ fun DailyActivityChart(activities: List<UserDailyActivity>) {
         dynamicMaxY <= 50f -> 10f
         else -> 20f
     }
-    // Počet čar mřížky (včetně nuly)
     val yAxisItemCount = (dynamicMaxY / yStep).toInt() + 1
 
     val chartEntryModelProducer = remember { ChartEntryModelProducer() }
@@ -1359,14 +1370,170 @@ fun DailyActivityChart(activities: List<UserDailyActivity>) {
                 },
                 chartModelProducer = chartEntryModelProducer,
                 startAxis = rememberStartAxis(
-                    // --- OPRAVENÁ MŘÍŽKA ---
-                    // Přinutíme graf nakreslit přesný počet čar, aby padly na celá čísla
                     itemPlacer = remember(yAxisItemCount) {
                         com.patrykandpatrick.vico.core.axis.AxisItemPlacer.Vertical.default(
                             maxItemCount = yAxisItemCount
                         )
                     },
                     valueFormatter = { value, _ -> String.format(java.util.Locale.US, "%.0f", value) }
+                ),
+                bottomAxis = rememberBottomAxis(
+                    valueFormatter = bottomAxisValueFormatter
+                ),
+                chartScrollSpec = rememberChartScrollSpec(isScrollEnabled = false),
+                modifier = Modifier
+                    .height(200.dp)
+                    .fillMaxWidth()
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimeStatsScreen(
+    userStats: UserStatistics?,
+    onBack: () -> Unit,
+    pbClient: PocketBaseClient,
+    loggedInPbToken: String,
+    loggedInUserId: String
+) {
+    BackHandler { onBack() }
+    var dailyActivities by remember { mutableStateOf<List<UserDailyActivity>>(emptyList()) }
+
+    LaunchedEffect(key1 = loggedInUserId) {
+        if (loggedInPbToken.isNotEmpty() && loggedInUserId.isNotEmpty()) {
+            val activities = pbClient.getUserDailyActivities(loggedInPbToken, loggedInUserId)
+            dailyActivities = activities
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Statistiky času") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zpět") } }
+            )
+        },
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                StatCard(
+                    label = "Průměrná doba",
+                    value = if (userStats != null) "${(userStats.avg_time / 60).toInt()}m ${(userStats.avg_time % 60).toInt()}s" else "Načítání...",
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    onClick = {}
+                )
+                StatCard(
+                    label = "Nejdelší doba",
+                    value = if (userStats != null) "${userStats.longest_time / 3600}h ${(userStats.longest_time % 3600) / 60}m" else "Načítání...",
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    onClick = {}
+                )
+            }
+            DailyTimeChart(dailyActivities)
+        }
+    }
+}
+
+@Composable
+fun DailyTimeChart(activities: List<UserDailyActivity>) {
+    val currentLocale = remember { java.util.Locale.getDefault() }
+    val dayFormatter = DateTimeFormatter.ofPattern("EEE", currentLocale)
+
+    val today = LocalDate.now()
+    val startDate = today.minusDays(6)
+
+    val activitiesByDate = activities.associateBy { LocalDate.parse(it.day.substring(0, 10)) }
+
+    val chartEntries = (0..6).map { i ->
+        val date = startDate.plusDays(i.toLong())
+        val duration = activitiesByDate[date]?.total_duration ?: 0
+        entryOf(i.toFloat(), (duration.toFloat() / 60f)) // Convert seconds to minutes
+    }
+
+    val maxTimeMinutes = chartEntries.maxOfOrNull { it.y } ?: 0f
+    val targetMax = maxTimeMinutes * 1.2f
+
+    val dynamicMaxY = when {
+        targetMax <= 0f -> 30f
+        targetMax <= 30f -> 30f
+        targetMax <= 60f -> 60f
+        targetMax <= 90f -> 90f
+        targetMax <= 120f -> 120f
+        else -> (ceil(targetMax / 30.0) * 30).toFloat()
+    }
+
+    val yStep = when {
+        dynamicMaxY <= 30f -> 5f
+        dynamicMaxY <= 60f -> 10f
+        dynamicMaxY <= 120f -> 20f
+        else -> 30f
+    }
+    val yAxisItemCount = (dynamicMaxY / yStep).toInt() + 1
+
+    val chartEntryModelProducer = remember { ChartEntryModelProducer() }
+    LaunchedEffect(chartEntries) {
+        chartEntryModelProducer.setEntries(chartEntries)
+    }
+
+    val bottomAxisValueFormatter = AxisValueFormatter<AxisPosition.Horizontal.Bottom> { value, _ ->
+        val date = startDate.plusDays(value.toLong())
+        dayFormatter.format(date).replaceFirstChar { it.titlecase(currentLocale) }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Minuty za posledních 7 dní",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 16.dp),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Chart(
+                chart = columnChart(
+                    columns = listOf(
+                        remember(UpceBlue) {
+                            com.patrykandpatrick.vico.core.component.shape.LineComponent(
+                                color = UpceBlue.toArgb(),
+                                thicknessDp = 24f,
+                                shape = com.patrykandpatrick.vico.core.component.shape.Shapes.roundedCornerShape(allPercent = 30)
+                            )
+                        }
+                    )
+                ).apply {
+                    axisValuesOverrider = com.patrykandpatrick.vico.core.chart.values.AxisValuesOverrider.fixed(
+                        minY = 0f,
+                        maxY = dynamicMaxY
+                    )
+                },
+                chartModelProducer = chartEntryModelProducer,
+                startAxis = rememberStartAxis(
+                    itemPlacer = remember(yAxisItemCount) {
+                        com.patrykandpatrick.vico.core.axis.AxisItemPlacer.Vertical.default(
+                            maxItemCount = yAxisItemCount
+                        )
+                    },
+                    valueFormatter = { value, _ -> String.format(java.util.Locale.US, "%.0f min", value) }
                 ),
                 bottomAxis = rememberBottomAxis(
                     valueFormatter = bottomAxisValueFormatter
