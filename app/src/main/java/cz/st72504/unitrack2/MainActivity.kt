@@ -1259,7 +1259,6 @@ fun DistanceStatsScreen(
                     onClick = {}
                 )
             }
-            // The chart will now be displayed even if dailyActivities is empty
             DailyActivityChart(dailyActivities)
         }
     }
@@ -1279,17 +1278,14 @@ fun DailyActivityChart(activities: List<UserDailyActivity>) {
         BarChartData.Bar(
             label = dayFormatter.format(date).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
             value = (distance.toDouble() / 1000).toFloat(),
-            color = ProgressTeal
+            color = UpceRed
         )
-    }.toMutableList()
-
-    // Add an invisible bar to force the Y-axis to go to 100
-    chartBars.add(BarChartData.Bar(label = "", value = 100f, color = Color.Transparent))
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -1305,16 +1301,18 @@ fun DailyActivityChart(activities: List<UserDailyActivity>) {
                     .height(200.dp)
                     .fillMaxWidth(),
                 xAxisDrawer = SimpleXAxisDrawer(
-                    axisLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                    axisLineColor = MaterialTheme.colorScheme.outlineVariant,
                 ),
                 yAxisDrawer = SimpleYAxisDrawer(
-                    labelRatio = 10,
-                    labelValueFormatter = { value -> value.toInt().toString() },
-                    axisLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                    labelRatio = 5,
+                    labelValueFormatter = { value -> String.format("%.0f", value) },
+                    axisLineColor = MaterialTheme.colorScheme.outlineVariant,
                     labelTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 labelDrawer = SimpleValueDrawer(
-                    labelTextSize = 0.sp
+                    labelTextSize = 12.sp,
+                    drawLocation = SimpleValueDrawer.DrawLocation.Inside,
+                    labelTextColor = Color.White
                 )
             )
         }
