@@ -72,7 +72,7 @@ data class UserDailyActivityListResponse(val items: List<UserDailyActivity>)
 class PocketBaseClient {
     private val client = OkHttpClient()
     private val gson = Gson()
-    private val baseUrl = "https://unitrack.xdzubox.xyz"
+    private val baseUrl = "https://pb.unitrack.fun"
 
     suspend fun getAuthProvider(providerName: String): AuthProvider? {
         return suspendCancellableCoroutine { continuation ->

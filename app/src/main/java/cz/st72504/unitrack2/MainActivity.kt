@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
     private var showSettingsScreen by mutableStateOf(false)
 
     private val pbClient = PocketBaseClient()
-    private val redirectUri = "https://unitrack.xdzubox.xyz/redirect.html"
+    private val redirectUri = "https://pb.unitrack.fun/redirect.html"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -333,7 +333,7 @@ class MainActivity : ComponentActivity() {
             val updatedRecord = pbClient.updateUserProfile(loggedInPbToken, loggedInUserId, name, team, isPublic, avatarBytes)
             withContext(Dispatchers.Main) {
                 if (updatedRecord != null) {
-                    val avatarUrl = updatedRecord.avatar?.let { "https://unitrack.xdzubox.xyz/api/files/_pb_users_auth_/${updatedRecord.id}/$it" } ?: ""
+                    val avatarUrl = updatedRecord.avatar?.let { "https://pb.unitrack.fun/api/files/_pb_users_auth_/${updatedRecord.id}/$it" } ?: ""
                     getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().apply {
                         putString("userName", name)
                         putString("userTeam", team)
@@ -361,7 +361,7 @@ class MainActivity : ComponentActivity() {
             val updatedRecord = pbClient.updateUserProfile(loggedInPbToken, loggedInUserId, name, team, isPublic, avatarBytes)
             withContext(Dispatchers.Main) {
                 if (updatedRecord != null) {
-                    val avatarUrl = updatedRecord.avatar?.let { "https://unitrack.xdzubox.xyz/api/files/_pb_users_auth_/${updatedRecord.id}/$it" } ?: ""
+                    val avatarUrl = updatedRecord.avatar?.let { "https://pb.unitrack.fun/api/files/_pb_users_auth_/${updatedRecord.id}/$it" } ?: ""
                     getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().apply {
                         putString("userName", name)
                         putBoolean("userIsPublic", isPublic)
@@ -447,7 +447,7 @@ class MainActivity : ComponentActivity() {
                             userName = auth.record.name
                             userTeam = auth.record.team ?: ""
                             userIsPublic = auth.record.public ?: true
-                            userAvatarUrl = auth.record.avatar?.let { "https://unitrack.xdzubox.xyz/api/files/_pb_users_auth_/${auth.record.id}/$it" } ?: ""
+                            userAvatarUrl = auth.record.avatar?.let { "https://pb.unitrack.fun/api/files/_pb_users_auth_/${auth.record.id}/$it" } ?: ""
                             statusText = "✅ Přihlášen"
                             isStravaLinked = !auth.record.strava_athlete_id.isNullOrEmpty()
 
@@ -1276,7 +1276,7 @@ fun RankingScreen(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 AsyncImage(
-                                    model = if (user.avatar.isNotEmpty()) "https://unitrack.xdzubox.xyz/api/files/_pb_users_auth_/${user.id}/${user.avatar}" else "",
+                                    model = if (user.avatar.isNotEmpty()) "https://pb.unitrack.fun/api/files/_pb_users_auth_/${user.id}/${user.avatar}" else "",
                                     contentDescription = "Avatar",
                                     modifier = Modifier
                                         .size(40.dp)
