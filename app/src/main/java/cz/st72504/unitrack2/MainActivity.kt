@@ -42,7 +42,6 @@ import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
 import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
 import com.patrykandpatrick.vico.compose.chart.Chart
 import com.patrykandpatrick.vico.compose.chart.column.columnChart
-import com.patrykandpatrick.vico.core.chart.values.AxisValuesOverrider
 import androidx.compose.ui.graphics.toArgb
 import com.patrykandpatrick.vico.core.axis.AxisPosition
 import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
@@ -84,6 +83,7 @@ class MainActivity : ComponentActivity() {
     private var showRankingScreen by mutableStateOf(false)
     private var showDistanceStatsScreen by mutableStateOf(false)
     private var showTimeStatsScreen by mutableStateOf(false)
+    private var showAchievementsScreen by mutableStateOf(false)
     private var dailyActivities by mutableStateOf<List<UserDailyActivity>>(emptyList())
 
     private var isStravaLinked by mutableStateOf(false)
@@ -138,6 +138,12 @@ class MainActivity : ComponentActivity() {
                                 dailyActivities = dailyActivities
                             )
                         }
+                        showAchievementsScreen -> {
+                            AchievementsScreen(
+                                achievements = userAchievements,
+                                onBack = { showAchievementsScreen = false }
+                            )
+                        }
                         showRankingScreen -> {
                             RankingScreen(
                                 allUsers = allUserStatsList,
@@ -188,6 +194,7 @@ class MainActivity : ComponentActivity() {
                                     fetchDailyActivities()
                                     showTimeStatsScreen = true
                                 },
+                                onAchievementsClick = { showAchievementsScreen = true },
                                 onRefreshClick = { refreshDataFromDb(snackbarHostState) },
                                 onSyncClick = { triggerSync(snackbarHostState) },
                                 snackbarHostState = snackbarHostState
@@ -553,6 +560,7 @@ fun MainScreen(
     onRankingClick: () -> Unit,
     onDistanceClick: () -> Unit,
     onTimeClick: () -> Unit,
+    onAchievementsClick: () -> Unit,
     onRefreshClick: () -> Unit,
     onSyncClick: () -> Unit,
     snackbarHostState: SnackbarHostState
@@ -605,6 +613,7 @@ fun MainScreen(
                         onRankingClick = onRankingClick,
                         onDistanceClick = onDistanceClick,
                         onTimeClick = onTimeClick,
+                        onAchievementsClick = onAchievementsClick,
                         activities = activities,
                         userStats = userStats,
                         userAchievements = userAchievements,
@@ -766,6 +775,7 @@ fun MyResultsView(
     onRankingClick: () -> Unit,
     onDistanceClick: () -> Unit,
     onTimeClick: () -> Unit,
+    onAchievementsClick: () -> Unit,
     activities: List<ActivityRecord>,
     userStats: UserStatistics?,
     userAchievements: UserAchievements?,
@@ -793,8 +803,8 @@ fun MyResultsView(
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentScale = ContentScale.Crop,
-                placeholder = painterResource(id = R.drawable.ic_launcher_background), // Placeholder image
-                error = painterResource(id = R.drawable.ic_launcher_background) // Error image
+                placeholder = painterResource(id = R.drawable.ic_profile_placeholder), // Placeholder image
+                error = painterResource(id = R.drawable.ic_profile_placeholder) // Error image
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -867,7 +877,7 @@ fun MyResultsView(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
-                    onClick = {}
+                    onClick = onAchievementsClick
                 )
             }
         }
@@ -1129,8 +1139,8 @@ fun SettingsScreen(
                                 contentDescription = "Avatar",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop,
-                                placeholder = painterResource(id = R.drawable.ic_launcher_background),
-                                error = painterResource(id = R.drawable.ic_launcher_background)
+                                placeholder = painterResource(id = R.drawable.ic_profile_placeholder),
+                                error = painterResource(id = R.drawable.ic_profile_placeholder)
                             )
                         }
                     }
@@ -1363,8 +1373,8 @@ fun RankingScreen(
                                         .clip(CircleShape)
                                         .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentScale = ContentScale.Crop,
-                                    placeholder = painterResource(id = R.drawable.ic_launcher_background),
-                                    error = painterResource(id = R.drawable.ic_launcher_background)
+                                    placeholder = painterResource(id = R.drawable.ic_profile_placeholder),
+                                    error = painterResource(id = R.drawable.ic_profile_placeholder)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
@@ -1707,3 +1717,116 @@ fun DailyTimeChart(activities: List<UserDailyActivity>) {
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AchievementsScreen(
+    achievements: UserAchievements?,
+    onBack: () -> Unit
+) {
+    BackHandler { onBack() }
+
+    val metadataList = listOf(
+        AchievementMetadata("badge_patriot", "Srdcař", "Nasbírej celkem 50 km.", 500),
+        AchievementMetadata("badge_charity", "Dobré srdce", "Zaznamenej aktivitu 11. října.", 1000),
+        AchievementMetadata("badge_morning", "Ranní ptáče", "Začni aktivitu před 6:00.", 300),
+        AchievementMetadata("badge_sprinter", "Sprinter", "Uraz aspoň 1 km rychlostí nad 15 km/h.", 400),
+        AchievementMetadata("badge_weekend", "Víkendový dříč", "Zaznamenej aktivitu v sobotu i v neděli.", 250),
+        AchievementMetadata("badge_marathon", "Maratonec", "Uraz 42,2 km v jedné aktivitě.", 2000),
+        AchievementMetadata("badge_halfmarathon", "Půlmaratonec", "Uraz 21,1 km v jedné aktivitě.", 1000),
+        AchievementMetadata("badge_unstoppable", "Nezastavitelný", "Zaznamenej aktivitu v 7 různých dnech.", 750)
+    )
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Moje odznaky") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zpět") } }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(metadataList) { meta ->
+                val isEarned = when (meta.key) {
+                    "badge_patriot" -> (achievements?.badge_patriot ?: 0) > 0
+                    "badge_charity" -> (achievements?.badge_charity ?: 0) > 0
+                    "badge_morning" -> (achievements?.badge_morning ?: 0) > 0
+                    "badge_sprinter" -> (achievements?.badge_sprinter ?: 0) > 0
+                    "badge_weekend" -> (achievements?.badge_weekend ?: 0) > 0
+                    "badge_marathon" -> (achievements?.badge_marathon ?: 0) > 0
+                    "badge_halfmarathon" -> (achievements?.badge_halfmarathon ?: 0) > 0
+                    "badge_unstoppable" -> (achievements?.badge_unstoppable ?: 0) > 0
+                    else -> false
+                }
+
+                AchievementItem(meta, isEarned)
+            }
+        }
+    }
+}
+
+@Composable
+fun AchievementItem(meta: AchievementMetadata, isEarned: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isEarned) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        border = if (isEarned) BorderStroke(2.dp, UpceRed) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .background(
+                        if (isEarned) UpceRed.copy(alpha = 0.1f) else Color.Gray.copy(alpha = 0.1f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(if (isEarned) "🏅" else "🔒", fontSize = 24.sp)
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = meta.name,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 17.sp,
+                    color = if (isEarned) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
+                Text(
+                    text = meta.description,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "+${meta.xp} XP",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = if (isEarned) ProgressTeal else Color.Gray
+                )
+            }
+        }
+    }
+}
+
+data class AchievementMetadata(
+    val key: String,
+    val name: String,
+    val description: String,
+    val xp: Int
+)
