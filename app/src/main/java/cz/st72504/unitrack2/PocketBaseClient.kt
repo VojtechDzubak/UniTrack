@@ -14,11 +14,15 @@ import java.io.IOException
 import kotlin.coroutines.resume
 
 // --- DATOVÉ TŘÍDY ---
+
+// Poskytovatelé přihlášení (Microsoft atd.)
 data class AuthMethodsResponse(val authProviders: List<AuthProvider>)
 data class AuthProvider(val name: String, val authUrl: String, val codeVerifier: String, val state: String)
 
+// Odpověď po přihlášení (token + data uživatele)
 data class AuthResponse(val token: String, val record: UserRecord)
 
+// Základní záznam uživatele
 data class UserRecord(
     val id: String,
     val name: String,
@@ -29,6 +33,7 @@ data class UserRecord(
     val strava_athlete_id: String?
 )
 
+// Statistiky uživatele (vzdálenost, XP, level)
 data class UserStatistics(
     val id: String,
     val name: String,
@@ -50,6 +55,7 @@ data class UserStatistics(
 
 data class UserStatisticsListResponse(val items: List<UserStatistics>)
 
+// Statistiky fakult
 data class TeamStatistics(
     val id: String,
     val team: String,
@@ -63,7 +69,10 @@ data class TeamStatistics(
 
 data class TeamStatisticsListResponse(val items: List<TeamStatistics>)
 
+// Odpověď po synchronizaci se Stravou
 data class SyncResponse(val message: String, val saved: Int, val total: Int)
+
+// Záznam jedné aktivity
 data class ActivityListResponse(val items: List<ActivityRecord>)
 data class ActivityRecord(
     val id: String,
@@ -73,6 +82,8 @@ data class ActivityRecord(
     val start_date: String,
     val activity_type: String
 )
+
+// Denní souhrny pro grafy
 data class UserDailyActivity(
     val day: String,
     val total_distance: Double,
@@ -81,6 +92,7 @@ data class UserDailyActivity(
 
 data class UserDailyActivityListResponse(val items: List<UserDailyActivity>)
 
+// Úspěchy a odznaky
 data class UserAchievements(
     val id: String,
     val badge_patriot: Int,
@@ -103,11 +115,14 @@ data class UserAchievements(
 }
 
 // --- SÍŤOVÝ KLIENT ---
+
+// Klient pro komunikaci s PocketBase API
 class PocketBaseClient {
     private val client = OkHttpClient()
     private val gson = Gson()
     private val baseUrl = "https://pb.unitrack.fun"
 
+    // Získá URL pro přihlášení přes Microsoft
     suspend fun getAuthProvider(providerName: String): AuthProvider? {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -140,6 +155,7 @@ class PocketBaseClient {
         }
     }
 
+    // Dokončí OAuth2 přihlášení a získá token
     suspend fun authWithOAuth2(providerName: String, code: String, codeVerifier: String, redirectUrl: String): AuthResponse? {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -175,6 +191,7 @@ class PocketBaseClient {
         }
     }
 
+    // Propojí účet se Stravou
     suspend fun linkStravaWithCode(pbToken: String, stravaCode: String): Boolean {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -201,6 +218,7 @@ class PocketBaseClient {
         }
     }
 
+    // Spustí synchronizaci běhů ze Stravy
     suspend fun triggerStravaSync(pbToken: String): SyncResponse? {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -236,6 +254,7 @@ class PocketBaseClient {
         }
     }
 
+    // Načte aktivity přihlášeného uživatele
     suspend fun getUserActivities(pbToken: String, userId: String): List<ActivityRecord> {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -273,6 +292,7 @@ class PocketBaseClient {
         }
     }
     
+    // Načte statistiky konkrétního uživatele
     suspend fun getUserStatistics(pbToken: String, userId: String): UserStatistics? {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -311,6 +331,7 @@ class PocketBaseClient {
         }
     }
 
+    // Načte statistiky všech uživatelů pro žebříček
     suspend fun getAllUserStatistics(pbToken: String): List<UserStatistics> {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -349,6 +370,7 @@ class PocketBaseClient {
         }
     }
 
+    // Načte statistiky fakult
     suspend fun getTeamStatistics(pbToken: String): List<TeamStatistics> {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -387,6 +409,7 @@ class PocketBaseClient {
         }
     }
 
+    // Načte přehled odznaků
     suspend fun getUserAchievements(pbToken: String, userId: String): UserAchievements? {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -425,6 +448,7 @@ class PocketBaseClient {
         }
     }
 
+    // Načte data aktuálního uživatele
     suspend fun getMe(pbToken: String, userId: String): UserRecord? {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -454,6 +478,7 @@ class PocketBaseClient {
         }
     }
 
+    // Aktualizuje profil (jméno, tým, avatar)
     suspend fun updateUserProfile(
         pbToken: String,
         userId: String,
@@ -504,6 +529,7 @@ class PocketBaseClient {
         }
     }
 
+    // Smaže účet
     suspend fun deleteUser(pbToken: String, userId: String): Boolean {
         return suspendCancellableCoroutine { continuation ->
             try {
@@ -527,41 +553,7 @@ class PocketBaseClient {
         }
     }
 
-    suspend fun triggerSync(pbToken: String): SyncResponse? {
-        return suspendCancellableCoroutine { continuation ->
-            try {
-                val request = Request.Builder()
-                    .url("$baseUrl/api/strava-fetch")
-                    .post("{}".toRequestBody("application/json".toMediaType()))
-                    .addHeader("Authorization", "Bearer $pbToken")
-                    .build()
-
-                val call = client.newCall(request)
-
-                call.enqueue(object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        if (continuation.isActive) continuation.resume(null)
-                    }
-                    override fun onResponse(call: Call, response: Response) {
-                        val body = response.body?.string()
-                        if (response.isSuccessful && body != null) {
-                            try {
-                                val syncData = gson.fromJson(body, SyncResponse::class.java)
-                                if (continuation.isActive) continuation.resume(syncData)
-                            } catch (e: Exception) {
-                                if (continuation.isActive) continuation.resume(null)
-                            }
-                        } else {
-                            if (continuation.isActive) continuation.resume(null)
-                        }
-                    }
-                })
-                continuation.invokeOnCancellation { call.cancel() }
-            } catch (e: Exception) {
-                if (continuation.isActive) continuation.resume(null)
-            }
-        }
-    }
+    // Načte denní aktivity za posledních 7 dní
     suspend fun getUserDailyActivities(pbToken: String, userId: String): List<UserDailyActivity> {
         return suspendCancellableCoroutine { continuation ->
             try {
