@@ -68,6 +68,27 @@ data class UserDailyActivity(
 
 data class UserDailyActivityListResponse(val items: List<UserDailyActivity>)
 
+data class UserAchievements(
+    val id: String,
+    val badge_patriot: Int,
+    val badge_charity: Int,
+    val badge_morning: Int,
+    val badge_sprinter: Int,
+    val badge_weekend: Int,
+    val badge_marathon: Int,
+    val badge_halfmarathon: Int,
+    val badge_unstoppable: Int
+) {
+    fun earnedCount(): Int {
+        return listOf(
+            badge_patriot, badge_charity, badge_morning, badge_sprinter,
+            badge_weekend, badge_marathon, badge_halfmarathon, badge_unstoppable
+        ).count { it > 0 }
+    }
+    
+    fun totalCount(): Int = 8
+}
+
 // --- SÍŤOVÝ KLIENT ---
 class PocketBaseClient {
     private val client = OkHttpClient()
@@ -311,6 +332,44 @@ class PocketBaseClient {
                 continuation.invokeOnCancellation { call.cancel() }
             } catch (e: Exception) {
                 if (continuation.isActive) continuation.resume(emptyList())
+            }
+        }
+    }
+
+    suspend fun getUserAchievements(pbToken: String, userId: String): UserAchievements? {
+        return suspendCancellableCoroutine { continuation ->
+            try {
+                val url = "$baseUrl/api/collections/user_achievements/records/$userId"
+                val request = Request.Builder()
+                    .url(url)
+                    .get()
+                    .addHeader("Authorization", "Bearer $pbToken")
+                    .build()
+
+                val call = client.newCall(request)
+
+                call.enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        val body = response.body?.string()
+                        if (response.isSuccessful && body != null) {
+                            try {
+                                val data = gson.fromJson(body, UserAchievements::class.java)
+                                if (continuation.isActive) continuation.resume(data)
+                            } catch (e: Exception) {
+                                if (continuation.isActive) continuation.resume(null)
+                            }
+                        } else {
+                            if (continuation.isActive) continuation.resume(null)
+                        }
+                    }
+                })
+                continuation.invokeOnCancellation { call.cancel() }
+            } catch (e: Exception) {
+                if (continuation.isActive) continuation.resume(null)
             }
         }
     }

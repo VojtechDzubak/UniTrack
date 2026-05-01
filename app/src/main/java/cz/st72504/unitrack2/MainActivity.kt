@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
     private var userAvatarUrl by mutableStateOf("")
     private var userStats by mutableStateOf<UserStatistics?>(null)
     private var allUserStatsList by mutableStateOf<List<UserStatistics>>(emptyList())
+    private var userAchievements by mutableStateOf<UserAchievements?>(null)
     private var showRankingScreen by mutableStateOf(false)
     private var showDistanceStatsScreen by mutableStateOf(false)
     private var showTimeStatsScreen by mutableStateOf(false)
@@ -171,6 +172,7 @@ class MainActivity : ComponentActivity() {
                                 showRegistration = showRegistrationForm,
                                 activities = activitiesList,
                                 userStats = userStats,
+                                userAchievements = userAchievements,
                                 onMicrosoftClick = { startOAuthLogin("oidc") },
                                 onSaveProfile = { name, team, isPublic, avatarBytes -> saveProfile(name, team, isPublic, avatarBytes) },
                                 userName = userName,
@@ -202,6 +204,7 @@ class MainActivity : ComponentActivity() {
         activitiesList = dataCache.getActivities()
         val cachedAllStats = dataCache.getAllUserStats()
         dailyActivities = dataCache.getDailyActivities()
+        userAchievements = dataCache.getUserAchievements()
 
         // Always apply ranking to cached data to ensure correct display
         allUserStatsList = rankStats(cachedAllStats)
@@ -214,6 +217,7 @@ class MainActivity : ComponentActivity() {
             fetchAllUserStats(forceRefresh)
             fetchUserStats(forceRefresh)
             fetchActivities(forceRefresh)
+            fetchUserAchievements(forceRefresh)
         }
     }
 
@@ -316,6 +320,23 @@ class MainActivity : ComponentActivity() {
             withContext(Dispatchers.Main) {
                 dailyActivities = daily
                 dataCache.saveDailyActivities(daily)
+            }
+        }
+    }
+
+    private fun fetchUserAchievements(forceRefresh: Boolean = false) {
+        if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
+        if (!forceRefresh && dataCache.getUserAchievements() != null) {
+            userAchievements = dataCache.getUserAchievements()
+            return
+        }
+        lifecycleScope.launch {
+            val achs = pbClient.getUserAchievements(loggedInPbToken, loggedInUserId)
+            withContext(Dispatchers.Main) {
+                if (achs != null) {
+                    userAchievements = achs
+                    dataCache.saveUserAchievements(achs)
+                }
             }
         }
     }
@@ -442,6 +463,7 @@ class MainActivity : ComponentActivity() {
         userStats = null
         allUserStatsList = emptyList()
         dailyActivities = emptyList()
+        userAchievements = null
         statusText = "Stav: Nepřihlášen"
         dataCache.clearCache()
         getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().clear().apply()
@@ -521,6 +543,7 @@ fun MainScreen(
     showRegistration: Boolean,
     activities: List<ActivityRecord>,
     userStats: UserStatistics?,
+    userAchievements: UserAchievements?,
     onMicrosoftClick: () -> Unit,
     onSaveProfile: (String, String, Boolean, ByteArray?) -> Unit,
     userName: String,
@@ -584,6 +607,7 @@ fun MainScreen(
                         onTimeClick = onTimeClick,
                         activities = activities,
                         userStats = userStats,
+                        userAchievements = userAchievements,
                         onRefreshClick = onRefreshClick
                     )
                 }
@@ -744,6 +768,7 @@ fun MyResultsView(
     onTimeClick: () -> Unit,
     activities: List<ActivityRecord>,
     userStats: UserStatistics?,
+    userAchievements: UserAchievements?,
     onRefreshClick: () -> Unit
 ) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("d. M. yyyy", Locale.getDefault()) }
@@ -838,7 +863,7 @@ fun MyResultsView(
                 )
                 StatCard(
                     label = "Počet odznaků",
-                    value = "N/A",
+                    value = if (userAchievements != null) "${userAchievements.earnedCount()} / ${userAchievements.totalCount()}" else "0 / 8",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),

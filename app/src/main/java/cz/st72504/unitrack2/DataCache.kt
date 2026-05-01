@@ -51,6 +51,16 @@ class DataCache(context: Context) {
         return gson.fromJson(json, type)
     }
 
+    fun saveUserAchievements(achievements: UserAchievements?) {
+        val json = gson.toJson(achievements)
+        prefs.edit().putString("user_achievements", json).apply()
+    }
+
+    fun getUserAchievements(): UserAchievements? {
+        val json = prefs.getString("user_achievements", null) ?: return null
+        return gson.fromJson(json, UserAchievements::class.java)
+    }
+
     fun clearCache() {
         prefs.edit().clear().apply()
     }
