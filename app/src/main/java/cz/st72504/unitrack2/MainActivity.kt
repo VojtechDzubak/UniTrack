@@ -198,16 +198,23 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loadDataFromCache() {
-        userStats = dataCache.getUserStats()
+        val cachedUserStats = dataCache.getUserStats()
         activitiesList = dataCache.getActivities()
-        allUserStatsList = dataCache.getAllUserStats()
+        val cachedAllStats = dataCache.getAllUserStats()
         dailyActivities = dataCache.getDailyActivities()
+
+        // Always apply ranking to cached data to ensure correct display
+        allUserStatsList = rankStats(cachedAllStats)
+        userStats = allUserStatsList.find { it.id == loggedInUserId } ?: cachedUserStats
     }
 
     private fun fetchData(forceRefresh: Boolean) {
-        fetchUserStats(forceRefresh)
-        fetchAllUserStats(forceRefresh)
-        fetchActivities(forceRefresh)
+        // Fetch all first so we can determine rank for the single user correctly
+        lifecycleScope.launch {
+            fetchAllUserStats(forceRefresh)
+            fetchUserStats(forceRefresh)
+            fetchActivities(forceRefresh)
+        }
     }
 
     private fun refreshDataFromDb(snackbarHostState: SnackbarHostState) {
@@ -225,32 +232,60 @@ class MainActivity : ComponentActivity() {
         showRankingScreen = true
     }
 
+    private fun rankStats(stats: List<UserStatistics>): List<UserStatistics> {
+        return stats.sortedByDescending { it.total_distance }
+            .mapIndexed { index, userStatistics ->
+                userStatistics.copy(rank = index + 1)
+            }
+    }
+
     private fun fetchUserStats(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
-        if (!forceRefresh && dataCache.getUserStats() != null) {
-            userStats = dataCache.getUserStats()
+        
+        // Try to get from ranked list if already loaded
+        val foundInAll = allUserStatsList.find { it.id == loggedInUserId }
+        if (!forceRefresh && foundInAll != null) {
+            userStats = foundInAll
             return
         }
+
         lifecycleScope.launch {
             val stats = pbClient.getUserStatistics(loggedInPbToken, loggedInUserId)
             withContext(Dispatchers.Main) {
-                userStats = stats
-                dataCache.saveUserStats(stats)
+                if (stats != null) {
+                    val currentRank = allUserStatsList.find { it.id == stats.id }?.rank ?: 0
+                    val statsWithRank = stats.copy(rank = currentRank)
+                    userStats = statsWithRank
+                    dataCache.saveUserStats(statsWithRank)
+                }
             }
         }
     }
 
     private fun fetchAllUserStats(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty()) return
-        if (!forceRefresh && dataCache.getAllUserStats().isNotEmpty()) {
-            allUserStatsList = dataCache.getAllUserStats()
+        
+        val cached = dataCache.getAllUserStats()
+        if (!forceRefresh && cached.isNotEmpty()) {
+            val ranked = rankStats(cached)
+            allUserStatsList = ranked
+            ranked.find { it.id == loggedInUserId }?.let { 
+                userStats = it 
+            }
             return
         }
+
         lifecycleScope.launch {
             val stats = pbClient.getAllUserStatistics(loggedInPbToken)
             withContext(Dispatchers.Main) {
-                allUserStatsList = stats
-                dataCache.saveAllUserStats(stats)
+                val rankedStats = rankStats(stats)
+                allUserStatsList = rankedStats
+                dataCache.saveAllUserStats(rankedStats)
+                
+                rankedStats.find { it.id == loggedInUserId }?.let {
+                    userStats = it
+                    dataCache.saveUserStats(it)
+                }
             }
         }
     }
@@ -795,7 +830,7 @@ fun MyResultsView(
             ) {
                 StatCard(
                     label = "Umístění",
-                    value = userStats?.rank?.toString() ?: "Načítání...",
+                    value = if (userStats != null && userStats.rank > 0) userStats.rank.toString() else "Načítání...",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
@@ -1217,10 +1252,17 @@ fun RankingScreen(
     BackHandler { onBack() }
     var selectedTab by remember { mutableStateOf(0) }
 
-    val filteredUsers = if (selectedTab == 0) {
+    val baseFilteredUsers = if (selectedTab == 0) {
         allUsers
     } else {
         allUsers.filter { it.team == currentUserTeam }
+    }
+
+    val rankedFilteredUsers = remember(baseFilteredUsers) {
+        baseFilteredUsers.sortedByDescending { it.total_distance }
+            .mapIndexed { index, userStatistics ->
+                userStatistics.copy(rank = index + 1)
+            }
     }
 
     Scaffold(
@@ -1265,7 +1307,7 @@ fun RankingScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(vertical = 16.dp)
                 ) {
-                    items(filteredUsers) { user ->
+                    items(rankedFilteredUsers) { user ->
                         val isCurrentUser = user.id == currentUserId
                         Row(
                             modifier = Modifier

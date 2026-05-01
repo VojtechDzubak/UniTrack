@@ -31,7 +31,6 @@ data class UserRecord(
 
 data class UserStatistics(
     val id: String,
-    val rank: Int,
     val name: String,
     val team: String,
     val avatar: String,
@@ -45,7 +44,8 @@ data class UserStatistics(
     val total_xp: Int,
     val level: Int,
     val current_level_xp: Int,
-    val xp_for_next_level: Int
+    val xp_for_next_level: Int,
+    val rank: Int = 0 // Rank added at the end, computed on frontend
 )
 
 data class UserStatisticsListResponse(val items: List<UserStatistics>)
@@ -280,7 +280,7 @@ class PocketBaseClient {
     suspend fun getAllUserStatistics(pbToken: String): List<UserStatistics> {
         return suspendCancellableCoroutine { continuation ->
             try {
-                val url = "$baseUrl/api/collections/user_statistics/records?sort=rank"
+                val url = "$baseUrl/api/collections/user_statistics/records?perPage=500"
                 val request = Request.Builder()
                     .url(url)
                     .get()
