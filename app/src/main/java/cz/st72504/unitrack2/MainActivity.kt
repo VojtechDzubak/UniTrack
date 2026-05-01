@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var dataCache: DataCache
 
     private var statusText by mutableStateOf("Stav: Nepřihlášen")
-    private var activeTab by mutableStateOf("moje_vysledky")
+    private var activeTab by mutableStateOf("celkove")
     private var showRegistrationForm by mutableStateOf(false)
     private var userName by mutableStateOf("")
     private var userTeam by mutableStateOf("")
