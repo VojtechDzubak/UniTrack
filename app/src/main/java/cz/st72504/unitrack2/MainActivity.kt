@@ -269,7 +269,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun fetchDailyActivities(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
         if (!forceRefresh && dataCache.getDailyActivities().isNotEmpty()) {
@@ -711,10 +711,14 @@ fun MyResultsView(
     userStats: UserStatistics?,
     onRefreshClick: () -> Unit
 ) {
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("d. M. yyyy", Locale.getDefault()) }
+    val lastActivities = activities.take(100)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
@@ -809,45 +813,54 @@ fun MyResultsView(
         }
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "NEDÁVNÉ BĚHY",
+            text = "Poslední aktivity:",
             modifier = Modifier.padding(bottom = 12.dp),
             fontSize = 13.sp,
             fontWeight = FontWeight.Black,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
-            items(activities) { act ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                ) {
-                    Row(
-                        Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+        if (lastActivities.isEmpty()) {
+            Text(
+                text = "Žádné aktivity k zobrazení.",
+                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.heightIn(max = 300.dp)) { // Added heightIn for LazyColumn
+                items(lastActivities) { act ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(UpceRed.copy(0.1f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) { Text("🏃") }
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = act.name,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 15.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "${String.format("%.2f", act.distance / 1000.0)} km • ${act.duration / 60} min",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        Row(
+                            Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(UpceRed.copy(0.1f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) { Text("🏃") }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = act.name,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${act.activity_type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }} • ${String.format("%.2f", act.distance / 1000.0)} km • ${act.duration / 60} min • ${LocalDate.parse(act.start_date.substring(0, 10)).format(dateFormatter)}",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
