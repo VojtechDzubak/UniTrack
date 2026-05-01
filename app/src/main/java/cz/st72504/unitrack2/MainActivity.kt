@@ -63,23 +63,21 @@ import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 
-// --- DESIGN SYSTÉM ---
 val UpceRed = Color(0xFFE32A22)
 val UpceBlue = Color(0xFF009EE3)
 val UpceGreen = Color(0xFF00A651)
 val StravaOrange = Color(0xFFFC4C02)
 val ProgressTeal = Color(0xFF00CED1)
 
-// Colors for the donut chart slices
 val FacultyColors = listOf(
-    Color(0xFFE32A22), // Red
-    Color(0xFF009EE3), // Blue
-    Color(0xFF00A651), // Green
-    Color(0xFFFFB300), // Yellow
-    Color(0xFF9C27B0), // Purple
-    Color(0xFF00BCD4), // Cyan
-    Color(0xFFFF5722), // Orange
-    Color(0xFF795548)  // Brown
+    Color(0xFFE32A22),
+    Color(0xFF009EE3),
+    Color(0xFF00A651),
+    Color(0xFFFFB300),
+    Color(0xFF9C27B0),
+    Color(0xFF00BCD4),
+    Color(0xFFFF5722),
+    Color(0xFF795548)
 )
 
 class MainActivity : ComponentActivity() {
@@ -232,13 +230,11 @@ class MainActivity : ComponentActivity() {
         userAchievements = dataCache.getUserAchievements()
         teamStatsList = rankTeamStats(dataCache.getTeamStats())
 
-        // Always apply ranking to cached data to ensure correct display
         allUserStatsList = rankStats(cachedAllStats)
         userStats = allUserStatsList.find { it.id == loggedInUserId } ?: cachedUserStats
     }
 
     private fun fetchData(forceRefresh: Boolean) {
-        // Fetch all first so we can determine rank for the single user correctly
         lifecycleScope.launch {
             fetchAllUserStats(forceRefresh)
             fetchUserStats(forceRefresh)
@@ -280,7 +276,6 @@ class MainActivity : ComponentActivity() {
     private fun fetchUserStats(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
         
-        // Try to get from ranked list if already loaded
         val foundInAll = allUserStatsList.find { it.id == loggedInUserId }
         if (!forceRefresh && foundInAll != null) {
             userStats = foundInAll
@@ -479,7 +474,7 @@ class MainActivity : ComponentActivity() {
                     userIsPublic = isPublic
                     userAvatarUrl = avatarUrl
                     statusText = "✅ Profil aktualizován!"
-                    showSettingsScreen = false // Navigate back
+                    showSettingsScreen = false
                     fetchData(forceRefresh = true)
                 } else {
                     statusText = "❌ Chyba při aktualizaci profilu."
@@ -585,7 +580,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// --- UI KOMPONENTY ---
 
 @Composable
 fun MainScreen(
@@ -677,6 +671,7 @@ fun OverallResultsView(teamStats: List<TeamStatistics>) {
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
+        @Suppress("DEPRECATION")
         Text(
             "Celkové výsledky",
             fontSize = 28.sp,
@@ -685,7 +680,6 @@ fun OverallResultsView(teamStats: List<TeamStatistics>) {
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        // Section 1: Individual Faculty Ranking
         if (teamStats.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = UpceRed)
@@ -760,7 +754,6 @@ fun OverallResultsView(teamStats: List<TeamStatistics>) {
             }
         }
 
-        // Section 2: Podíl kilometrů (Donut Chart)
         if (teamStats.isNotEmpty()) {
             Card(
                 modifier = Modifier
@@ -797,19 +790,16 @@ fun FacultyDonutChart(teamStats: List<TeamStatistics>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // Zmenšené odsazení, aby měl větší graf prostor dýchat
             .padding(vertical = 16.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // --- The Donut ---
         Box(
             modifier = Modifier
-                .weight(1.2f) // Graf nyní zabírá větší část obrazovky
-                .aspectRatio(1f) // Vynutí dokonalý kruh
+                .weight(1.2f)
+                .aspectRatio(1f)
                 .wrapContentHeight(),
             contentAlignment = Alignment.Center
         ) {
-            // ZVĚTŠENÍ GRAFU: 190.dp
             Canvas(modifier = Modifier.size(190.dp)) {
                 var startAngle = -90f
                 teamStats.forEachIndexed { index, team ->
@@ -822,14 +812,12 @@ fun FacultyDonutChart(teamStats: List<TeamStatistics>) {
                         startAngle = startAngle,
                         sweepAngle = sweepAngle,
                         useCenter = false,
-                        // Mírně silnější linka (28.dp), aby seděla k většímu průměru
                         style = Stroke(width = 28.dp.toPx(), cap = StrokeCap.Butt)
                     )
                     startAngle += sweepAngle
                 }
             }
 
-            // --- Center Text ---
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "CELKEM",
@@ -846,15 +834,13 @@ fun FacultyDonutChart(teamStats: List<TeamStatistics>) {
             }
         }
 
-        // VĚTŠÍ MEZERA: Odstup mezi grafem a legendou pro lepší přehlednost
         Spacer(modifier = Modifier.width(40.dp))
 
-        // --- Legend ---
         Column(
             modifier = Modifier
-                .weight(1f), // Legenda zabírá menší zbytek prostoru
+                .weight(1f),
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            horizontalAlignment = Alignment.Start // Striktní zarovnání celého bloku doleva
+            horizontalAlignment = Alignment.Start
         ) {
             teamStats.forEachIndexed { index, team ->
                 val percentage = if (totalDistance > 0) {
@@ -864,8 +850,6 @@ fun FacultyDonutChart(teamStats: List<TeamStatistics>) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Start
-                    // ODSTRANĚNO: modifier = Modifier.fillMaxWidth()
-                    // Díky tomu se řádek neroztahuje, ale drží se striktně na levé straně
                 ) {
                     Box(
                         modifier = Modifier
@@ -881,7 +865,7 @@ fun FacultyDonutChart(teamStats: List<TeamStatistics>) {
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Start // Pojištění, že text bude zarovnán zleva
+                        textAlign = TextAlign.Start
                     )
                 }
             }
@@ -900,6 +884,7 @@ fun LoggedOutView(onMicrosoftClick: () -> Unit) {
     ) {
         Text("🔒", fontSize = 64.sp)
         Spacer(Modifier.height(16.dp))
+        @Suppress("DEPRECATION")
         Text("Tato sekce je uzamčena", fontSize = 22.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground)
         Text(
             "Pro zobrazení statistik se musíš přihlásit.",
@@ -1011,6 +996,7 @@ fun RegistrationForm(onSave: (String, String, Boolean, ByteArray?) -> Unit) {
             Switch(checked = isPublic, onCheckedChange = { isPublic = it }, colors = SwitchDefaults.colors(checkedThumbColor = UpceRed))
             Spacer(Modifier.width(12.dp))
             Column {
+                @Suppress("DEPRECATION")
                 Text("Veřejný profil", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
                 Text("Ostatní uvidí tvé jméno v žebříčku", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -1067,8 +1053,8 @@ fun MyResultsView(
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentScale = ContentScale.Crop,
-                placeholder = painterResource(id = R.drawable.ic_profile_placeholder), // Placeholder image
-                error = painterResource(id = R.drawable.ic_profile_placeholder) // Error image
+                placeholder = painterResource(id = R.drawable.ic_profile_placeholder),
+                error = painterResource(id = R.drawable.ic_profile_placeholder)
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -1100,7 +1086,7 @@ fun MyResultsView(
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             LevelStatCard(
                 userStats = userStats,
-                onClick = { /* TODO: Handle click for level card */ }
+                onClick = { }
             )
             Row(
                 modifier = Modifier.height(IntrinsicSize.Max),
@@ -1161,7 +1147,7 @@ fun MyResultsView(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.heightIn(max = 300.dp)) { // Added heightIn for LazyColumn
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.heightIn(max = 300.dp)) {
                 items(lastActivities) { act ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -1357,7 +1343,6 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // --- Profile Section ---
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1442,7 +1427,6 @@ fun SettingsScreen(
                 }
             }
 
-            // --- Connections Section ---
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1482,7 +1466,6 @@ fun SettingsScreen(
                 }
             }
 
-            // --- Account Actions Section ---
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1753,7 +1736,7 @@ fun DailyActivityChart(activities: List<UserDailyActivity>) {
     }
 
     val maxDistanceKm = chartEntries.maxOfOrNull { it.y } ?: 0f
-    val targetMax = maxDistanceKm * 1.2f 
+    val targetMax = maxDistanceKm * 1.2f
 
     val dynamicMaxY = when {
         targetMax <= 0f -> 5f
@@ -1898,7 +1881,7 @@ fun DailyTimeChart(activities: List<UserDailyActivity>) {
     val chartEntries = (0..6).map { i ->
         val date = startDate.plusDays(i.toLong())
         val duration = activitiesByDate[date]?.total_duration ?: 0
-        entryOf(i.toFloat(), (duration.toFloat() / 60f)) // Convert seconds to minutes
+        entryOf(i.toFloat(), (duration.toFloat() / 60f))
     }
 
     val maxTimeMinutes = chartEntries.maxOfOrNull { it.y } ?: 0f
