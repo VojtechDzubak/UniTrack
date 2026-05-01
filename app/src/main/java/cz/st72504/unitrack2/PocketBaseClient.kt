@@ -50,6 +50,19 @@ data class UserStatistics(
 
 data class UserStatisticsListResponse(val items: List<UserStatistics>)
 
+data class TeamStatistics(
+    val id: String,
+    val team: String,
+    val runners_count: Int,
+    val total_distance: Double,
+    val run_distance: Double,
+    val walk_distance: Double,
+    val ride_distance: Double,
+    var rank: Int = 0
+)
+
+data class TeamStatisticsListResponse(val items: List<TeamStatistics>)
+
 data class SyncResponse(val message: String, val saved: Int, val total: Int)
 data class ActivityListResponse(val items: List<ActivityRecord>)
 data class ActivityRecord(
@@ -320,6 +333,44 @@ class PocketBaseClient {
                         if (response.isSuccessful && body != null) {
                             try {
                                 val data = gson.fromJson(body, UserStatisticsListResponse::class.java)
+                                if (continuation.isActive) continuation.resume(data.items)
+                            } catch (e: Exception) {
+                                if (continuation.isActive) continuation.resume(emptyList())
+                            }
+                        } else {
+                            if (continuation.isActive) continuation.resume(emptyList())
+                        }
+                    }
+                })
+                continuation.invokeOnCancellation { call.cancel() }
+            } catch (e: Exception) {
+                if (continuation.isActive) continuation.resume(emptyList())
+            }
+        }
+    }
+
+    suspend fun getTeamStatistics(pbToken: String): List<TeamStatistics> {
+        return suspendCancellableCoroutine { continuation ->
+            try {
+                val url = "$baseUrl/api/collections/team_rank_advanced/records?sort=-total_distance"
+                val request = Request.Builder()
+                    .url(url)
+                    .get()
+                    .addHeader("Authorization", "Bearer $pbToken")
+                    .build()
+    
+                val call = client.newCall(request)
+    
+                call.enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (continuation.isActive) continuation.resume(emptyList())
+                    }
+    
+                    override fun onResponse(call: Call, response: Response) {
+                        val body = response.body?.string()
+                        if (response.isSuccessful && body != null) {
+                            try {
+                                val data = gson.fromJson(body, TeamStatisticsListResponse::class.java)
                                 if (continuation.isActive) continuation.resume(data.items)
                             } catch (e: Exception) {
                                 if (continuation.isActive) continuation.resume(emptyList())

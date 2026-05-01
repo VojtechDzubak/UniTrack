@@ -30,6 +30,17 @@ class DataCache(context: Context) {
         return gson.fromJson(json, type)
     }
 
+    fun saveTeamStats(stats: List<TeamStatistics>) {
+        val json = gson.toJson(stats)
+        prefs.edit().putString("team_stats", json).apply()
+    }
+
+    fun getTeamStats(): List<TeamStatistics> {
+        val json = prefs.getString("team_stats", null) ?: return emptyList()
+        val type = object : TypeToken<List<TeamStatistics>>() {}.type
+        return gson.fromJson(json, type)
+    }
+
     fun saveActivities(activities: List<ActivityRecord>) {
         val json = gson.toJson(activities)
         prefs.edit().putString("activities", json).apply()

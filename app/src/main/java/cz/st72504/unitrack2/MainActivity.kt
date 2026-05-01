@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,7 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -57,6 +60,7 @@ import java.time.format.DateTimeFormatter
 import java.util.*
 import java.util.Locale
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 
 // --- DESIGN SYSTÉM ---
@@ -65,6 +69,18 @@ val UpceBlue = Color(0xFF009EE3)
 val UpceGreen = Color(0xFF00A651)
 val StravaOrange = Color(0xFFFC4C02)
 val ProgressTeal = Color(0xFF00CED1)
+
+// Colors for the donut chart slices
+val FacultyColors = listOf(
+    Color(0xFFE32A22), // Red
+    Color(0xFF009EE3), // Blue
+    Color(0xFF00A651), // Green
+    Color(0xFFFFB300), // Yellow
+    Color(0xFF9C27B0), // Purple
+    Color(0xFF00BCD4), // Cyan
+    Color(0xFFFF5722), // Orange
+    Color(0xFF795548)  // Brown
+)
 
 class MainActivity : ComponentActivity() {
 
@@ -79,6 +95,7 @@ class MainActivity : ComponentActivity() {
     private var userAvatarUrl by mutableStateOf("")
     private var userStats by mutableStateOf<UserStatistics?>(null)
     private var allUserStatsList by mutableStateOf<List<UserStatistics>>(emptyList())
+    private var teamStatsList by mutableStateOf<List<TeamStatistics>>(emptyList())
     private var userAchievements by mutableStateOf<UserAchievements?>(null)
     private var showRankingScreen by mutableStateOf(false)
     private var showDistanceStatsScreen by mutableStateOf(false)
@@ -179,6 +196,7 @@ class MainActivity : ComponentActivity() {
                                 activities = activitiesList,
                                 userStats = userStats,
                                 userAchievements = userAchievements,
+                                teamStats = teamStatsList,
                                 onMicrosoftClick = { startOAuthLogin("oidc") },
                                 onSaveProfile = { name, team, isPublic, avatarBytes -> saveProfile(name, team, isPublic, avatarBytes) },
                                 userName = userName,
@@ -212,6 +230,7 @@ class MainActivity : ComponentActivity() {
         val cachedAllStats = dataCache.getAllUserStats()
         dailyActivities = dataCache.getDailyActivities()
         userAchievements = dataCache.getUserAchievements()
+        teamStatsList = rankTeamStats(dataCache.getTeamStats())
 
         // Always apply ranking to cached data to ensure correct display
         allUserStatsList = rankStats(cachedAllStats)
@@ -225,6 +244,7 @@ class MainActivity : ComponentActivity() {
             fetchUserStats(forceRefresh)
             fetchActivities(forceRefresh)
             fetchUserAchievements(forceRefresh)
+            fetchTeamStats(forceRefresh)
         }
     }
 
@@ -247,6 +267,13 @@ class MainActivity : ComponentActivity() {
         return stats.sortedByDescending { it.total_distance }
             .mapIndexed { index, userStatistics ->
                 userStatistics.copy(rank = index + 1)
+            }
+    }
+
+    private fun rankTeamStats(stats: List<TeamStatistics>): List<TeamStatistics> {
+        return stats.sortedByDescending { it.total_distance }
+            .mapIndexed { index, teamStatistics ->
+                teamStatistics.apply { rank = index + 1 }
             }
     }
 
@@ -297,6 +324,23 @@ class MainActivity : ComponentActivity() {
                     userStats = it
                     dataCache.saveUserStats(it)
                 }
+            }
+        }
+    }
+
+    private fun fetchTeamStats(forceRefresh: Boolean = false) {
+        if (loggedInPbToken.isEmpty()) return
+        val cached = dataCache.getTeamStats()
+        if (!forceRefresh && cached.isNotEmpty()) {
+            teamStatsList = rankTeamStats(cached)
+            return
+        }
+        lifecycleScope.launch {
+            val stats = pbClient.getTeamStatistics(loggedInPbToken)
+            withContext(Dispatchers.Main) {
+                val ranked = rankTeamStats(stats)
+                teamStatsList = ranked
+                dataCache.saveTeamStats(ranked)
             }
         }
     }
@@ -469,6 +513,7 @@ class MainActivity : ComponentActivity() {
         showSettingsScreen = false
         userStats = null
         allUserStatsList = emptyList()
+        teamStatsList = emptyList()
         dailyActivities = emptyList()
         userAchievements = null
         statusText = "Stav: Nepřihlášen"
@@ -551,6 +596,7 @@ fun MainScreen(
     activities: List<ActivityRecord>,
     userStats: UserStatistics?,
     userAchievements: UserAchievements?,
+    teamStats: List<TeamStatistics>,
     onMicrosoftClick: () -> Unit,
     onSaveProfile: (String, String, Boolean, ByteArray?) -> Unit,
     userName: String,
@@ -575,7 +621,7 @@ fun MainScreen(
                     selected = activeTab == "celkove",
                     onClick = { onTabChange("celkove") },
                     icon = { Text("🏆", fontSize = 20.sp) },
-                    label = { Text("Celkové", fontWeight = FontWeight.Bold) },
+                    label = { Text("Celkové výsledky", fontWeight = FontWeight.Bold) },
                     colors = NavigationBarItemDefaults.colors(selectedIconColor = UpceRed, selectedTextColor = UpceRed, indicatorColor = UpceRed.copy(alpha = 0.1f))
                 )
                 NavigationBarItem(
@@ -596,9 +642,7 @@ fun MainScreen(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             if (activeTab == "celkove") {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Zde budou celkové výsledky...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
-                }
+                OverallResultsView(teamStats)
             } else {
                 if (!isLoggedIn) {
                     LoggedOutView(onMicrosoftClick)
@@ -618,6 +662,209 @@ fun MainScreen(
                         userStats = userStats,
                         userAchievements = userAchievements,
                         onRefreshClick = onRefreshClick
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OverallResultsView(teamStats: List<TeamStatistics>) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text(
+            "Celkové výsledky",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // Section 1: Individual Faculty Ranking
+        if (teamStats.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = UpceRed)
+            }
+        } else {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "Pořadí fakult",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(bottom = 16.dp),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    teamStats.forEach { team ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "${team.rank}.",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 20.sp,
+                                modifier = Modifier.width(36.dp),
+                                color = if (team.rank <= 3) UpceRed else MaterialTheme.colorScheme.onSurface
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = team.team,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 18.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Účastníků: ${team.runners_count}",
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = String.format(java.util.Locale.US, "%.1f km", team.total_distance / 1000),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 18.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "celkem",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (teamStats.last() != team) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 0.dp))
+                        }
+                    }
+                }
+            }
+        }
+
+        // Section 2: Podíl kilometrů (Donut Chart)
+        if (teamStats.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = "Podíl kilometrů",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.padding(bottom = 24.dp),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    
+                    FacultyDonutChart(teamStats)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FacultyDonutChart(teamStats: List<TeamStatistics>) {
+    val totalDistance = teamStats.sumOf { it.total_distance }
+    val totalDistanceKm = totalDistance / 1000
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(240.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // --- The Donut ---
+        Box(
+            modifier = Modifier
+                .weight(1.2f)
+                .fillMaxHeight(),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.size(170.dp)) {
+                var startAngle = -90f
+                teamStats.forEachIndexed { index, team ->
+                    val sweepAngle = if (totalDistance > 0) {
+                        (team.total_distance / totalDistance).toFloat() * 360f
+                    } else 0f
+                    
+                    drawArc(
+                        color = FacultyColors.getOrElse(index) { Color.Gray },
+                        startAngle = startAngle,
+                        sweepAngle = sweepAngle,
+                        useCenter = false,
+                        style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Butt)
+                    )
+                    startAngle += sweepAngle
+                }
+            }
+            
+            // --- Center Text ---
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "CELKEM",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+                Text(
+                    text = String.format(java.util.Locale.US, "%.0f km", totalDistanceKm),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        // --- Legend ---
+        Column(
+            modifier = Modifier
+                .padding(start = 16.dp)
+                .weight(0.8f),
+            verticalArrangement = Arrangement.Center
+        ) {
+            teamStats.forEachIndexed { index, team ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .background(FacultyColors.getOrElse(index) { Color.Gray }, RoundedCornerShape(2.dp))
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = team.team,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -1800,6 +2047,7 @@ fun AchievementItem(meta: AchievementMetadata, isEarned: Boolean) {
             }
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
+                @Suppress("DEPRECATION")
                 Text(
                     text = meta.name,
                     fontWeight = FontWeight.Black,
