@@ -45,7 +45,7 @@ data class UserStatistics(
     val level: Int,
     val current_level_xp: Int,
     val xp_for_next_level: Int,
-    val rank: Int = 0 // Rank added at the end, computed on frontend
+    val rank: Int = 0
 )
 
 data class UserStatisticsListResponse(val items: List<UserStatistics>)

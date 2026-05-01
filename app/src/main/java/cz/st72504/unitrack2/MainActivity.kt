@@ -62,13 +62,14 @@ import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
-
+// --- Designový systém ---
 val UpceRed = Color(0xFFE32A22)
 val UpceBlue = Color(0xFF009EE3)
 val UpceGreen = Color(0xFF00A651)
 val StravaOrange = Color(0xFFFC4C02)
 val ProgressTeal = Color(0xFF00CED1)
 
+// Barvy pro graf fakult
 val FacultyColors = listOf(
     Color(0xFFE32A22),
     Color(0xFF009EE3),
@@ -80,10 +81,15 @@ val FacultyColors = listOf(
     Color(0xFF795548)
 )
 
+/**
+ * Hlavní aktivita aplikace UniTrack.
+ * Spravuje stav přihlášení, navigaci a načítání dat.
+ */
 class MainActivity : ComponentActivity() {
 
     private lateinit var dataCache: DataCache
 
+    // Stavové proměnné pro UI
     private var statusText by mutableStateOf("Stav: Nepřihlášen")
     private var activeTab by mutableStateOf("celkove")
     private var showRegistrationForm by mutableStateOf(false)
@@ -114,6 +120,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         dataCache = DataCache(this)
 
+        // Načtení uloženého přihlášení
         val prefs = getSharedPreferences("UniTrackPrefs", MODE_PRIVATE)
         loggedInPbToken = prefs.getString("pbToken", "") ?: ""
         loggedInUserId = prefs.getString("userId", "") ?: ""
@@ -222,6 +229,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // --- Načítání a správa dat ---
+
+    // Načte data z lokální mezipaměti pro rychlé zobrazení při startu
     private fun loadDataFromCache() {
         val cachedUserStats = dataCache.getUserStats()
         activitiesList = dataCache.getActivities()
@@ -234,6 +244,7 @@ class MainActivity : ComponentActivity() {
         userStats = allUserStatsList.find { it.id == loggedInUserId } ?: cachedUserStats
     }
 
+    // Spustí paralelní načítání všech dat ze serveru
     private fun fetchData(forceRefresh: Boolean) {
         lifecycleScope.launch {
             fetchAllUserStats(forceRefresh)
@@ -244,6 +255,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Vyvolá vynucené načtení dat z DB s potvrzením v UI
     private fun refreshDataFromDb(snackbarHostState: SnackbarHostState) {
         if (loggedInPbToken.isEmpty()) return
         lifecycleScope.launch {
@@ -254,11 +266,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Načte statistiky a otevře obrazovku žebříčku
     private fun fetchAllUserStatsAndShowRanking() {
         fetchAllUserStats(forceRefresh = false)
         showRankingScreen = true
     }
 
+    // Seřadí uživatele podle naběhané vzdálenosti
     private fun rankStats(stats: List<UserStatistics>): List<UserStatistics> {
         return stats.sortedByDescending { it.total_distance }
             .mapIndexed { index, userStatistics ->
@@ -266,6 +280,7 @@ class MainActivity : ComponentActivity() {
             }
     }
 
+    // Seřadí týmy (fakulty) podle celkové vzdálenosti
     private fun rankTeamStats(stats: List<TeamStatistics>): List<TeamStatistics> {
         return stats.sortedByDescending { it.total_distance }
             .mapIndexed { index, teamStatistics ->
@@ -273,6 +288,7 @@ class MainActivity : ComponentActivity() {
             }
     }
 
+    // Načte statistiky pro aktuálně přihlášeného uživatele
     private fun fetchUserStats(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
         
@@ -295,6 +311,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Načte statistiky všech uživatelů ze serveru
     private fun fetchAllUserStats(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty()) return
         
@@ -323,6 +340,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Načte statistiky jednotlivých fakult
     private fun fetchTeamStats(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty()) return
         val cached = dataCache.getTeamStats()
@@ -340,6 +358,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Načte historii všech aktivit uživatele
     private fun fetchActivities(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
         if (!forceRefresh && dataCache.getActivities().isNotEmpty()) {
@@ -355,6 +374,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Načte sumární denní aktivity pro grafy
     private fun fetchDailyActivities(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
         if (!forceRefresh && dataCache.getDailyActivities().isNotEmpty()) {
@@ -370,6 +390,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Načte přehled získaných odznaků
     private fun fetchUserAchievements(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
         if (!forceRefresh && dataCache.getUserAchievements() != null) {
@@ -387,6 +408,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // --- Autentizace a externí služby ---
+
+    // Zahájí OAuth proces pro daného poskytovatele (Microsoft, Strava)
     private fun startOAuthLogin(providerName: String) {
         lifecycleScope.launch {
             val provider = pbClient.getAuthProvider(providerName)
@@ -407,6 +431,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Přesměruje uživatele do prohlížeče pro autorizaci Stravy
     private fun openStravaBrowser() {
         if (loggedInPbToken.isEmpty()) {
             statusText = "Nejdřív se musíš přihlásit!"
@@ -416,6 +441,7 @@ class MainActivity : ComponentActivity() {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(stravaUrl)))
     }
 
+    // Vyvolá synchronizaci dat ze Stravy na straně serveru
     private fun triggerSync(snackbarHostState: SnackbarHostState) {
         if (loggedInPbToken.isEmpty()) return
         statusText = "Stahuji běhy..."
@@ -429,6 +455,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // --- Správa uživatelského profilu ---
+
+    // Prvotní uložení profilu při registraci
     private fun saveProfile(name: String, team: String, isPublic: Boolean, avatarBytes: ByteArray?) {
         statusText = "Ukládám profil na server..."
         lifecycleScope.launch {
@@ -457,6 +486,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Aktualizace údajů ve stávajícím profilu
     private fun updateProfile(name: String, team: String, isPublic: Boolean, avatarBytes: ByteArray?) {
         statusText = "Aktualizuji profil..."
         lifecycleScope.launch {
@@ -483,6 +513,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Smaže účet uživatele a odhlásí jej
     private fun deleteAccount() {
         statusText = "Mažu účet..."
         lifecycleScope.launch {
@@ -496,6 +527,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // Vymaže lokální data a odhlásí uživatele z aplikace
     private fun logout() {
         loggedInPbToken = ""
         loggedInUserId = ""
@@ -516,6 +548,7 @@ class MainActivity : ComponentActivity() {
         getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().clear().apply()
     }
 
+    // Zpracování návratu z prohlížeče (OAuth callback)
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val uri = intent.data ?: return
@@ -528,6 +561,7 @@ class MainActivity : ComponentActivity() {
 
             lifecycleScope.launch {
                 if (state == "strava") {
+                    // Propojení Stravy s existujícím účtem
                     val success = pbClient.linkStravaWithCode(loggedInPbToken, code)
                     withContext(Dispatchers.Main) {
                         if (success) {
@@ -543,6 +577,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 } else {
+                    // Přihlášení přes Microsoft/PocketBase
                     val auth = pbClient.authWithOAuth2(currentProvider, code, currentCodeVerifier, redirectUri)
                     withContext(Dispatchers.Main) {
                         if (auth != null) {
@@ -580,7 +615,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// --- UI Komponenty ---
 
+/**
+ * Hlavní kontejner aplikace se spodní navigací.
+ */
 @Composable
 fun MainScreen(
     isLoggedIn: Boolean,
@@ -663,6 +702,7 @@ fun MainScreen(
     }
 }
 
+// Pohled pro celkové výsledky univerzitní výzvy
 @Composable
 fun OverallResultsView(teamStats: List<TeamStatistics>) {
     Column(
@@ -782,6 +822,7 @@ fun OverallResultsView(teamStats: List<TeamStatistics>) {
     }
 }
 
+// Donut graf zobrazující podíl kilometrů jednotlivých fakult
 @Composable
 fun FacultyDonutChart(teamStats: List<TeamStatistics>) {
     val totalDistance = teamStats.sumOf { it.total_distance }
@@ -873,6 +914,9 @@ fun FacultyDonutChart(teamStats: List<TeamStatistics>) {
     }
 }
 
+/**
+ * Obrazovka pro nepřihlášeného uživatele.
+ */
 @Composable
 fun LoggedOutView(onMicrosoftClick: () -> Unit) {
     Column(
@@ -905,6 +949,7 @@ fun LoggedOutView(onMicrosoftClick: () -> Unit) {
     }
 }
 
+// Formulář pro nastavení jména a fakulty po prvním přihlášení
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegistrationForm(onSave: (String, String, Boolean, ByteArray?) -> Unit) {
@@ -1016,6 +1061,7 @@ fun RegistrationForm(onSave: (String, String, Boolean, ByteArray?) -> Unit) {
     }
 }
 
+// Osobní profil a výsledky přihlášeného uživatele
 @Composable
 fun MyResultsView(
     userName: String,
@@ -1042,6 +1088,7 @@ fun MyResultsView(
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
+                @Suppress("DEPRECATION")
                 Text(text = userName, fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
                 Text(text = userTeam, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -1063,6 +1110,7 @@ fun MyResultsView(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            @Suppress("DEPRECATION")
             OutlinedButton(
                 onClick = onSettingsClick,
                 modifier = Modifier.weight(1f),
@@ -1189,6 +1237,7 @@ fun MyResultsView(
     }
 }
 
+// Základní karta se statistikou
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatCard(label: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
@@ -1213,6 +1262,7 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier, onClic
     }
 }
 
+// Karta zobrazující aktuální úroveň a XP progres
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
@@ -1294,6 +1344,7 @@ fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
     }
 }
 
+// Obrazovka nastavení aplikace a profilu
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -1523,6 +1574,7 @@ fun SettingsScreen(
     }
 }
 
+// Žebříček nejlepších běžců celé univerzity nebo týmu
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RankingScreen(
@@ -1668,6 +1720,7 @@ fun RankingScreen(
     )
 }
 
+// Obrazovka s detailními statistikami vzdálenosti a grafem
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DistanceStatsScreen(
@@ -1719,6 +1772,7 @@ fun DistanceStatsScreen(
     }
 }
 
+// Sloupcový graf naběhaných kilometrů za posledních 7 dní
 @Composable
 fun DailyActivityChart(activities: List<UserDailyActivity>) {
     val currentLocale = remember { java.util.Locale.getDefault() }
@@ -1817,6 +1871,7 @@ fun DailyActivityChart(activities: List<UserDailyActivity>) {
     }
 }
 
+// Obrazovka s detailními statistikami času a grafem aktivity
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimeStatsScreen(
@@ -1868,6 +1923,7 @@ fun TimeStatsScreen(
     }
 }
 
+// Sloupcový graf času stráveného během za posledních 7 dní
 @Composable
 fun DailyTimeChart(activities: List<UserDailyActivity>) {
     val currentLocale = remember { java.util.Locale.getDefault() }
@@ -1965,6 +2021,7 @@ fun DailyTimeChart(activities: List<UserDailyActivity>) {
     }
 }
 
+// Seznam odznaků a úspěchů uživatele
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AchievementsScreen(
@@ -2018,6 +2075,7 @@ fun AchievementsScreen(
     }
 }
 
+// Jednotlivá položka odznaku v seznamu
 @Composable
 fun AchievementItem(meta: AchievementMetadata, isEarned: Boolean) {
     Card(
