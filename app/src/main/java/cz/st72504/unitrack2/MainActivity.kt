@@ -792,39 +792,43 @@ fun OverallResultsView(teamStats: List<TeamStatistics>) {
 @Composable
 fun FacultyDonutChart(teamStats: List<TeamStatistics>) {
     val totalDistance = teamStats.sumOf { it.total_distance }
-    val totalDistanceKm = totalDistance / 1000
+    val totalDistanceKm = totalDistance / 1000.0
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(240.dp),
+            // Zmenšené odsazení, aby měl větší graf prostor dýchat
+            .padding(vertical = 16.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // --- The Donut ---
         Box(
             modifier = Modifier
-                .weight(1.2f)
-                .fillMaxHeight(),
+                .weight(1.2f) // Graf nyní zabírá větší část obrazovky
+                .aspectRatio(1f) // Vynutí dokonalý kruh
+                .wrapContentHeight(),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(modifier = Modifier.size(170.dp)) {
+            // ZVĚTŠENÍ GRAFU: 190.dp
+            Canvas(modifier = Modifier.size(190.dp)) {
                 var startAngle = -90f
                 teamStats.forEachIndexed { index, team ->
                     val sweepAngle = if (totalDistance > 0) {
                         (team.total_distance / totalDistance).toFloat() * 360f
                     } else 0f
-                    
+
                     drawArc(
                         color = FacultyColors.getOrElse(index) { Color.Gray },
                         startAngle = startAngle,
                         sweepAngle = sweepAngle,
                         useCenter = false,
-                        style = Stroke(width = 30.dp.toPx(), cap = StrokeCap.Butt)
+                        // Mírně silnější linka (28.dp), aby seděla k většímu průměru
+                        style = Stroke(width = 28.dp.toPx(), cap = StrokeCap.Butt)
                     )
                     startAngle += sweepAngle
                 }
             }
-            
+
             // --- Center Text ---
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
@@ -842,29 +846,42 @@ fun FacultyDonutChart(teamStats: List<TeamStatistics>) {
             }
         }
 
+        // VĚTŠÍ MEZERA: Odstup mezi grafem a legendou pro lepší přehlednost
+        Spacer(modifier = Modifier.width(40.dp))
+
         // --- Legend ---
         Column(
             modifier = Modifier
-                .padding(start = 16.dp)
-                .weight(0.8f),
-            verticalArrangement = Arrangement.Center
+                .weight(1f), // Legenda zabírá menší zbytek prostoru
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.Start // Striktní zarovnání celého bloku doleva
         ) {
             teamStats.forEachIndexed { index, team ->
+                val percentage = if (totalDistance > 0) {
+                    (team.total_distance.toDouble() / totalDistance * 100)
+                } else 0.0
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 4.dp)
+                    horizontalArrangement = Arrangement.Start
+                    // ODSTRANĚNO: modifier = Modifier.fillMaxWidth()
+                    // Díky tomu se řádek neroztahuje, ale drží se striktně na levé straně
                 ) {
                     Box(
                         modifier = Modifier
                             .size(14.dp)
-                            .background(FacultyColors.getOrElse(index) { Color.Gray }, RoundedCornerShape(2.dp))
+                            .background(
+                                color = FacultyColors.getOrElse(index) { Color.Gray },
+                                shape = RoundedCornerShape(4.dp)
+                            )
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
-                        text = team.team,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "${team.team} (${String.format(java.util.Locale.US, "%.1f%%", percentage)})",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Start // Pojištění, že text bude zarovnán zleva
                     )
                 }
             }
