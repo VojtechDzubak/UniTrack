@@ -60,6 +60,7 @@ import java.time.format.DateTimeFormatter
 import java.util.*
 import java.util.Locale
 import kotlin.math.ceil
+import androidx.compose.ui.text.style.TextOverflow
 import kotlin.math.roundToInt
 
 // --- Designový systém ---
@@ -763,7 +764,7 @@ fun OverallResultsView(teamStats: List<TeamStatistics>, publicActivities: List<P
                         .padding(16.dp)
                 ) {
                     Text(
-                        text = "Pořadí fakult",
+                        text = "Žebříček",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(bottom = 16.dp),
                         color = MaterialTheme.colorScheme.onSurface
@@ -870,9 +871,12 @@ fun OverallResultsView(teamStats: List<TeamStatistics>, publicActivities: List<P
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
-                            Modifier.padding(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // 1. PROFILOVKA (Zůstává)
                             AsyncImage(
                                 model = if (act.user_id.isNotEmpty() && act.user_avatar.isNotEmpty()) {
                                     "https://pb.unitrack.fun/api/files/users/${act.user_id}/${act.user_avatar}"
@@ -888,16 +892,46 @@ fun OverallResultsView(teamStats: List<TeamStatistics>, publicActivities: List<P
                                 placeholder = painterResource(id = R.drawable.ic_profile_placeholder),
                                 error = painterResource(id = R.drawable.ic_profile_placeholder)
                             )
+
                             Spacer(Modifier.width(12.dp))
-                            Column {
+
+                            // 2. STŘED: Jméno + Fakulta a pod tím Typ + Datum
+                            Column(modifier = Modifier.weight(1f)) {
+                                // Jméno a fakulta v závorce
                                 Text(
-                                    text = act.user_name,
+                                    text = "${act.user_name} [${act.user_team}]",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                // Formátování typu (např. "run" -> "Run") a data
+                                val displayType = act.activity_type.replaceFirstChar {
+                                    if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                                }
+                                val formattedDate = LocalDate.parse(act.start_date.substring(0, 10)).format(dateFormatter)
+
+                                Text(
+                                    text = "$displayType • $formattedDate",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            // 3. VPRAVO: Vzdálenost a Čas
+                            Column(horizontalAlignment = Alignment.End) {
+                                // Vzdálenost - stejný styl jako jméno (Black, 15.sp)
+                                Text(
+                                    text = "${String.format("%.2f", act.distance / 1000.0)} km",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 15.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
+                                // Čas - menší a šedý
                                 Text(
-                                    text = "${act.user_team} • ${String.format("%.2f", act.distance / 1000.0)} km • ${act.duration / 60} min • ${LocalDate.parse(act.start_date.substring(0, 10)).format(dateFormatter)}",
+                                    text = "${act.duration / 60} min",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1294,25 +1328,45 @@ fun MyResultsView(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                     ) {
                         Row(
-                            Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(UpceRed.copy(0.1f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) { Text("🏃") }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
+                            // LEVÁ STRANA: Název, Typ a Datum
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = act.name,
                                     fontWeight = FontWeight.Black,
                                     fontSize = 15.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                val formattedType = act.activity_type.replaceFirstChar {
+                                    if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+                                }
+                                val formattedDate = LocalDate.parse(act.start_date.substring(0, 10)).format(dateFormatter)
+
+                                Text(
+                                    text = "$formattedType • $formattedDate",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            // PRAVÁ STRANA: Vzdálenost a Čas
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "${String.format("%.2f", act.distance / 1000.0)} km",
+                                    fontWeight = FontWeight.Black, // Stejný jako u názvu
+                                    fontSize = 15.sp,              // Stejný jako u názvu
+                                    color = MaterialTheme.colorScheme.onSurface // Stejná barva
                                 )
                                 Text(
-                                    text = "${act.activity_type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }} • ${String.format("%.2f", act.distance / 1000.0)} km • ${act.duration / 60} min • ${LocalDate.parse(act.start_date.substring(0, 10)).format(dateFormatter)}",
+                                    text = "${act.duration / 60} min",
                                     fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

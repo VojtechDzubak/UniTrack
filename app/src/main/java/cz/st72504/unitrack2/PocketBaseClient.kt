@@ -92,6 +92,7 @@ data class PublicActivityRecord(
     val user_avatar: String,
     val user_team: String,
     val distance: Double,
+    val activity_type: String,
     val duration: Int,
     val start_date: String
 )
