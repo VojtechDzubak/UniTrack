@@ -853,12 +853,6 @@ fun OverallResultsView(
                                     fontSize = 18.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                Text(
-                                    text = "celkem",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
                         }
                         if (teamStats.last() != team) {
