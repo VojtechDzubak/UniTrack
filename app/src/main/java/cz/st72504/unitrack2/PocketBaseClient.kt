@@ -307,10 +307,16 @@ class PocketBaseClient {
     }
 
     // Načte veřejné aktivity všech uživatelů
-    suspend fun getPublicActivities(pbToken: String): List<PublicActivityRecord> {
+    suspend fun getPublicActivities(pbToken: String = ""): List<PublicActivityRecord> {
         return suspendCancellableCoroutine { continuation ->
             try {
                 val url = "$baseUrl/api/collections/activities_public/records?sort=-start_date&perPage=100"
+                val requestBuilder = Request.Builder().url(url).get()
+
+                // PŘIDAT TOKEN JEN POKUD EXISTUJE
+                if (pbToken.isNotEmpty()) {
+                    requestBuilder.addHeader("Authorization", "Bearer $pbToken")
+                }
                 val request = Request.Builder()
                     .url(url)
                     .get()

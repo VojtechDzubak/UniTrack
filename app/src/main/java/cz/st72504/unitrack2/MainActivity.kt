@@ -139,6 +139,9 @@ class MainActivity : ComponentActivity() {
             if (userTeam.isEmpty()) showRegistrationForm = true
             loadDataFromCache()
             fetchData(forceRefresh = false)
+        } else {
+            loadDataFromCache()
+            fetchPublicDataOnly()
         }
 
         setContent {
@@ -234,6 +237,13 @@ class MainActivity : ComponentActivity() {
 
     // --- Načítání a správa dat ---
 
+    private fun fetchPublicDataOnly() {
+        lifecycleScope.launch {
+            fetchTeamStats(forceRefresh = false)
+            fetchPublicActivities(forceRefresh = false)
+        }
+    }
+
     // Načte data z lokální mezipaměti pro rychlé zobrazení při startu
     private fun loadDataFromCache() {
         val cachedUserStats = dataCache.getUserStats()
@@ -262,9 +272,16 @@ class MainActivity : ComponentActivity() {
 
     // Vyvolá vynucené načtení dat z DB s potvrzením v UI
     private fun refreshDataFromDb(snackbarHostState: SnackbarHostState) {
-        if (loggedInPbToken.isEmpty()) return
         lifecycleScope.launch {
-            fetchData(forceRefresh = true)
+            // Pokud je uživatel přihlášen, obnovíme všechna data,
+            // pokud ne, obnovíme pouze veřejné statistiky
+            if (loggedInPbToken.isNotEmpty()) {
+                fetchData(forceRefresh = true)
+            } else {
+                fetchTeamStats(forceRefresh = true)
+                fetchPublicActivities(forceRefresh = true)
+            }
+
             withContext(Dispatchers.Main) {
                 snackbarHostState.showSnackbar("Data byla obnovena z databáze.")
             }
@@ -347,7 +364,6 @@ class MainActivity : ComponentActivity() {
 
     // Načte statistiky jednotlivých fakult
     private fun fetchTeamStats(forceRefresh: Boolean = false) {
-        if (loggedInPbToken.isEmpty()) return
         val cached = dataCache.getTeamStats()
         if (!forceRefresh && cached.isNotEmpty()) {
             teamStatsList = rankTeamStats(cached)
@@ -381,7 +397,6 @@ class MainActivity : ComponentActivity() {
 
     // Načte historii veřejných aktivit všech uživatelů
     private fun fetchPublicActivities(forceRefresh: Boolean = false) {
-        if (loggedInPbToken.isEmpty()) return
         if (!forceRefresh && dataCache.getPublicActivities().isNotEmpty()) {
             publicActivitiesList = dataCache.getPublicActivities()
             return
@@ -698,7 +713,11 @@ fun MainScreen(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             if (activeTab == "celkove") {
-                OverallResultsView(teamStats, publicActivities)
+                OverallResultsView(
+                    teamStats = teamStats,
+                    publicActivities = publicActivities,
+                    onRefreshClick = onRefreshClick
+                )
             } else {
                 if (!isLoggedIn) {
                     LoggedOutView(onMicrosoftClick)
@@ -727,7 +746,11 @@ fun MainScreen(
 
 // Pohled pro celkové výsledky univerzitní výzvy
 @Composable
-fun OverallResultsView(teamStats: List<TeamStatistics>, publicActivities: List<PublicActivityRecord>) {
+fun OverallResultsView(
+    teamStats: List<TeamStatistics>,
+    publicActivities: List<PublicActivityRecord>,
+    onRefreshClick: () -> Unit // Přidaný parametr pro funkci obnovy
+) {
     val dateFormatter = remember { DateTimeFormatter.ofPattern("d. M. yyyy", Locale.getDefault()) }
 
     Column(
@@ -736,17 +759,34 @@ fun OverallResultsView(teamStats: List<TeamStatistics>, publicActivities: List<P
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        @Suppress("DEPRECATION")
-        Text(
-            "Celkové výsledky",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        // --- Horní lišta s nadpisem a tlačítkem pro obnovu ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                "Celkové výsledky",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            IconButton(
+                onClick = onRefreshClick,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Sync,
+                    contentDescription = "Synchronizovat"
+                )
+            }
+        }
 
         if (teamStats.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().height(200.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = UpceRed)
             }
         } else {
