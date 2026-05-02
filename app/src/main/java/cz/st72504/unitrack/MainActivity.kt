@@ -11,6 +11,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import cz.st72504.unitrack.model.*
 import cz.st72504.unitrack.ui.MainScreen
@@ -57,6 +58,7 @@ class MainActivity : ComponentActivity() {
     private val redirectUri = "https://pb.unitrack.fun/redirect.html"
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         dataCache = DataCache(this)
 
