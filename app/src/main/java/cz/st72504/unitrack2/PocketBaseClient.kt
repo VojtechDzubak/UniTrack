@@ -83,6 +83,18 @@ data class ActivityRecord(
     val activity_type: String
 )
 
+// Záznam veřejné aktivity (včetně jména uživatele)
+data class PublicActivityListResponse(val items: List<PublicActivityRecord>)
+data class PublicActivityRecord(
+    val id: String,
+    val user_name: String,
+    val user_avatar: String,
+    val user_team: String,
+    val distance: Double,
+    val duration: Int,
+    val start_date: String
+)
+
 // Denní souhrny pro grafy
 data class UserDailyActivity(
     val day: String,
@@ -276,6 +288,44 @@ class PocketBaseClient {
                         if (response.isSuccessful && body != null) {
                             try {
                                 val data = gson.fromJson(body, ActivityListResponse::class.java)
+                                if (continuation.isActive) continuation.resume(data.items)
+                            } catch (e: Exception) {
+                                if (continuation.isActive) continuation.resume(emptyList())
+                            }
+                        } else {
+                            if (continuation.isActive) continuation.resume(emptyList())
+                        }
+                    }
+                })
+                continuation.invokeOnCancellation { call.cancel() }
+            } catch (e: Exception) {
+                if (continuation.isActive) continuation.resume(emptyList())
+            }
+        }
+    }
+
+    // Načte veřejné aktivity všech uživatelů
+    suspend fun getPublicActivities(pbToken: String): List<PublicActivityRecord> {
+        return suspendCancellableCoroutine { continuation ->
+            try {
+                val url = "$baseUrl/api/collections/activities_public/records?sort=-start_date&perPage=100"
+                val request = Request.Builder()
+                    .url(url)
+                    .get()
+                    .addHeader("Authorization", "Bearer $pbToken")
+                    .build()
+
+                val call = client.newCall(request)
+
+                call.enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        if (continuation.isActive) continuation.resume(emptyList())
+                    }
+                    override fun onResponse(call: Call, response: Response) {
+                        val body = response.body?.string()
+                        if (response.isSuccessful && body != null) {
+                            try {
+                                val data = gson.fromJson(body, PublicActivityListResponse::class.java)
                                 if (continuation.isActive) continuation.resume(data.items)
                             } catch (e: Exception) {
                                 if (continuation.isActive) continuation.resume(emptyList())

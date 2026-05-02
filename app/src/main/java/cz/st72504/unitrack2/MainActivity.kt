@@ -111,6 +111,7 @@ class MainActivity : ComponentActivity() {
     private var loggedInPbToken by mutableStateOf("")
     private var loggedInUserId by mutableStateOf("")
     private var activitiesList by mutableStateOf<List<ActivityRecord>>(emptyList())
+    private var publicActivitiesList by mutableStateOf<List<PublicActivityRecord>>(emptyList())
     private var showSettingsScreen by mutableStateOf(false)
 
     private val pbClient = PocketBaseClient()
@@ -199,6 +200,7 @@ class MainActivity : ComponentActivity() {
                                 onTabChange = { activeTab = it },
                                 showRegistration = showRegistrationForm,
                                 activities = activitiesList,
+                                publicActivities = publicActivitiesList,
                                 userStats = userStats,
                                 userAchievements = userAchievements,
                                 teamStats = teamStatsList,
@@ -235,6 +237,7 @@ class MainActivity : ComponentActivity() {
     private fun loadDataFromCache() {
         val cachedUserStats = dataCache.getUserStats()
         activitiesList = dataCache.getActivities()
+        publicActivitiesList = dataCache.getPublicActivities()
         val cachedAllStats = dataCache.getAllUserStats()
         dailyActivities = dataCache.getDailyActivities()
         userAchievements = dataCache.getUserAchievements()
@@ -250,6 +253,7 @@ class MainActivity : ComponentActivity() {
             fetchAllUserStats(forceRefresh)
             fetchUserStats(forceRefresh)
             fetchActivities(forceRefresh)
+            fetchPublicActivities(forceRefresh)
             fetchUserAchievements(forceRefresh)
             fetchTeamStats(forceRefresh)
         }
@@ -370,6 +374,22 @@ class MainActivity : ComponentActivity() {
             withContext(Dispatchers.Main) {
                 activitiesList = acts
                 dataCache.saveActivities(acts)
+            }
+        }
+    }
+
+    // Načte historii veřejných aktivit všech uživatelů
+    private fun fetchPublicActivities(forceRefresh: Boolean = false) {
+        if (loggedInPbToken.isEmpty()) return
+        if (!forceRefresh && dataCache.getPublicActivities().isNotEmpty()) {
+            publicActivitiesList = dataCache.getPublicActivities()
+            return
+        }
+        lifecycleScope.launch {
+            val acts = pbClient.getPublicActivities(loggedInPbToken)
+            withContext(Dispatchers.Main) {
+                publicActivitiesList = acts
+                dataCache.savePublicActivities(acts)
             }
         }
     }
@@ -535,6 +555,7 @@ class MainActivity : ComponentActivity() {
         userTeam = ""
         userAvatarUrl = ""
         activitiesList = emptyList()
+        publicActivitiesList = emptyList()
         isStravaLinked = false
         showRegistrationForm = false
         showSettingsScreen = false
@@ -627,6 +648,7 @@ fun MainScreen(
     onTabChange: (String) -> Unit,
     showRegistration: Boolean,
     activities: List<ActivityRecord>,
+    publicActivities: List<PublicActivityRecord>,
     userStats: UserStatistics?,
     userAchievements: UserAchievements?,
     teamStats: List<TeamStatistics>,
@@ -675,7 +697,7 @@ fun MainScreen(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             if (activeTab == "celkove") {
-                OverallResultsView(teamStats)
+                OverallResultsView(teamStats, publicActivities)
             } else {
                 if (!isLoggedIn) {
                     LoggedOutView(onMicrosoftClick)
@@ -704,7 +726,9 @@ fun MainScreen(
 
 // Pohled pro celkové výsledky univerzitní výzvy
 @Composable
-fun OverallResultsView(teamStats: List<TeamStatistics>) {
+fun OverallResultsView(teamStats: List<TeamStatistics>, publicActivities: List<PublicActivityRecord>) {
+    val dateFormatter = remember { DateTimeFormatter.ofPattern("d. M. yyyy", Locale.getDefault()) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -816,6 +840,66 @@ fun OverallResultsView(teamStats: List<TeamStatistics>) {
                     )
                     
                     FacultyDonutChart(teamStats)
+                }
+            }
+        }
+
+        Text(
+            text = "Poslední aktivity:",
+            modifier = Modifier.padding(bottom = 12.dp),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (publicActivities.isEmpty()) {
+            Text(
+                text = "Žádné aktivity k zobrazení.",
+                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.heightIn(max = 600.dp)) {
+                items(publicActivities) { act ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AsyncImage(
+                                model = if (act.user_avatar.isNotEmpty()) "https://pb.unitrack.fun/api/files/_pb_users_auth_/${act.id}/${act.user_avatar}" else "",
+                                contentDescription = "Avatar",
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentScale = ContentScale.Crop,
+                                placeholder = painterResource(id = R.drawable.ic_profile_placeholder),
+                                error = painterResource(id = R.drawable.ic_profile_placeholder)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = act.user_name,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${act.user_team} • ${String.format("%.2f", act.distance / 1000.0)} km • ${act.duration / 60} min • ${LocalDate.parse(act.start_date.substring(0, 10)).format(dateFormatter)}",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

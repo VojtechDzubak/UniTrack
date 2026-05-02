@@ -52,6 +52,17 @@ class DataCache(context: Context) {
         return gson.fromJson(json, type)
     }
 
+    fun savePublicActivities(activities: List<PublicActivityRecord>) {
+        val json = gson.toJson(activities)
+        prefs.edit().putString("public_activities", json).apply()
+    }
+
+    fun getPublicActivities(): List<PublicActivityRecord> {
+        val json = prefs.getString("public_activities", null) ?: return emptyList()
+        val type = object : TypeToken<List<PublicActivityRecord>>() {}.type
+        return gson.fromJson(json, type)
+    }
+
     fun saveDailyActivities(dailyActivities: List<UserDailyActivity>) {
         prefs.edit().putString("daily_activities", gson.toJson(dailyActivities)).apply()
     }
