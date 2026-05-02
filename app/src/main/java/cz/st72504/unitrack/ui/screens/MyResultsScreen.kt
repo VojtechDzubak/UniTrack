@@ -294,15 +294,6 @@ fun LevelStatCard(userStats: UserStatistics?, onClick: () -> Unit) {
                 trackColor = ProgressTeal.copy(alpha = 0.3f)
             )
             Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("⚡", fontSize = 12.sp)
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = "Za každý naběhaný kilometr získáš 100 XP.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }

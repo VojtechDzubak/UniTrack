@@ -313,7 +313,7 @@ class PocketBaseClient {
     suspend fun getTeamStatistics(pbToken: String): List<TeamStatistics> {
         return suspendCancellableCoroutine { continuation ->
             try {
-                val url = "$baseUrl/api/collections/team_rank_advanced/records?sort=-total_distance"
+                val url = "$baseUrl/api/collections/team_rank/records?sort=-total_distance"
                 val request = Request.Builder()
                     .url(url)
                     .get()
