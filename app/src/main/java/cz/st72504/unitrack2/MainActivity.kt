@@ -874,7 +874,11 @@ fun OverallResultsView(teamStats: List<TeamStatistics>, publicActivities: List<P
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             AsyncImage(
-                                model = if (act.user_avatar.isNotEmpty()) "https://pb.unitrack.fun/api/files/_pb_users_auth_/${act.id}/${act.user_avatar}" else "",
+                                model = if (act.user_id.isNotEmpty() && act.user_avatar.isNotEmpty()) {
+                                    "https://pb.unitrack.fun/api/files/users/${act.user_id}/${act.user_avatar}"
+                                } else {
+                                    null
+                                },
                                 contentDescription = "Avatar",
                                 modifier = Modifier
                                     .size(40.dp)

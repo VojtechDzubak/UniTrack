@@ -83,10 +83,11 @@ data class ActivityRecord(
     val activity_type: String
 )
 
-// Záznam veřejné aktivity (včetně jména uživatele)
+// Záznam veřejné aktivity
 data class PublicActivityListResponse(val items: List<PublicActivityRecord>)
 data class PublicActivityRecord(
     val id: String,
+    val user_id: String,
     val user_name: String,
     val user_avatar: String,
     val user_team: String,
