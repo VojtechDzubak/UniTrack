@@ -1353,7 +1353,7 @@ fun MyResultsView(
         }
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "Poslední aktivity:",
+            text = "Moje aktivity:",
             modifier = Modifier.padding(bottom = 12.dp),
             fontSize = 13.sp,
             fontWeight = FontWeight.Black,

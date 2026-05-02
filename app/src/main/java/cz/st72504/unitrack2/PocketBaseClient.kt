@@ -310,7 +310,7 @@ class PocketBaseClient {
     suspend fun getPublicActivities(pbToken: String = ""): List<PublicActivityRecord> {
         return suspendCancellableCoroutine { continuation ->
             try {
-                val url = "$baseUrl/api/collections/activities_public/records?sort=-start_date&perPage=100"
+                val url = "$baseUrl/api/collections/activities_public/records?sort=-start_date&perPage=20"
                 val requestBuilder = Request.Builder().url(url).get()
 
                 // PŘIDAT TOKEN JEN POKUD EXISTUJE
