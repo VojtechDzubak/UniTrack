@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2.model
+package cz.st72504.unitrack.model
 
 /**
  * Modely pro úspěchy (odznaky) uživatele.

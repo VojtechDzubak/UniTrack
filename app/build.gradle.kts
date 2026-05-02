@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "cz.st72504.unitrack2"
+    namespace = "cz.st72504.unitrack"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "cz.st72504.unitrack2"
+        applicationId = "cz.st72504.unitrack"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

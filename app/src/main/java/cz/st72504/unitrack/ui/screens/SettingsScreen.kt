@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2.ui.screens
+package cz.st72504.unitrack.ui.screens
 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -28,11 +28,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import cz.st72504.unitrack2.R
-import cz.st72504.unitrack2.ui.theme.StravaOrange
-import cz.st72504.unitrack2.ui.theme.UpceBlue
-import cz.st72504.unitrack2.ui.theme.UpceGreen
-import cz.st72504.unitrack2.ui.theme.UpceRed
+import cz.st72504.unitrack.R
+import cz.st72504.unitrack.ui.theme.StravaOrange
+import cz.st72504.unitrack.ui.theme.UpceBlue
+import cz.st72504.unitrack.ui.theme.UpceGreen
+import cz.st72504.unitrack.ui.theme.UpceRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

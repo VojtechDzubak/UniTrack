@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2.ui.screens
+package cz.st72504.unitrack.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -17,7 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -26,13 +25,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import cz.st72504.unitrack2.R
-import cz.st72504.unitrack2.model.ActivityRecord
-import cz.st72504.unitrack2.model.UserAchievements
-import cz.st72504.unitrack2.model.UserStatistics
-import cz.st72504.unitrack2.ui.components.StatCard
-import cz.st72504.unitrack2.ui.theme.ProgressTeal
-import cz.st72504.unitrack2.ui.theme.UpceRed
+import cz.st72504.unitrack.R
+import cz.st72504.unitrack.model.ActivityRecord
+import cz.st72504.unitrack.model.UserAchievements
+import cz.st72504.unitrack.model.UserStatistics
+import cz.st72504.unitrack.ui.components.StatCard
+import cz.st72504.unitrack.ui.theme.ProgressTeal
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*

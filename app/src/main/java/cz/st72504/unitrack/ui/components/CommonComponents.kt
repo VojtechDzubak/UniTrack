@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2.ui.components
+package cz.st72504.unitrack.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*

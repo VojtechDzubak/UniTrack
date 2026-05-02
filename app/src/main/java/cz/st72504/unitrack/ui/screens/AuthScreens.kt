@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2.ui.screens
+package cz.st72504.unitrack.ui.screens
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,7 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cz.st72504.unitrack2.ui.theme.UpceRed
+import cz.st72504.unitrack.ui.theme.UpceRed
 
 @Composable
 fun LoggedOutView(onMicrosoftClick: () -> Unit) {

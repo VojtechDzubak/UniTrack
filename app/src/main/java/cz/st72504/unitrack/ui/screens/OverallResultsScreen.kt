@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2.ui.screens
+package cz.st72504.unitrack.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -21,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -30,11 +29,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import cz.st72504.unitrack2.R
-import cz.st72504.unitrack2.model.PublicActivityRecord
-import cz.st72504.unitrack2.model.TeamStatistics
-import cz.st72504.unitrack2.ui.theme.FacultyColors
-import cz.st72504.unitrack2.ui.theme.UpceRed
+import cz.st72504.unitrack.R
+import cz.st72504.unitrack.model.PublicActivityRecord
+import cz.st72504.unitrack.model.TeamStatistics
+import cz.st72504.unitrack.ui.theme.FacultyColors
+import cz.st72504.unitrack.ui.theme.UpceRed
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.*

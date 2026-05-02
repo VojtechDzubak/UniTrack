@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2.ui.screens
+package cz.st72504.unitrack.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -21,9 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import cz.st72504.unitrack2.R
-import cz.st72504.unitrack2.model.UserStatistics
-import cz.st72504.unitrack2.ui.theme.UpceRed
+import cz.st72504.unitrack.R
+import cz.st72504.unitrack.model.UserStatistics
+import cz.st72504.unitrack.ui.theme.UpceRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

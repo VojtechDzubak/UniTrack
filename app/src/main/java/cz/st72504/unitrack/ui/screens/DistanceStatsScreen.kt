@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2.ui.screens
+package cz.st72504.unitrack.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
@@ -24,17 +24,17 @@ import com.patrykandpatrick.vico.core.axis.AxisPosition
 import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
 import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
 import com.patrykandpatrick.vico.core.entry.entryOf
-import cz.st72504.unitrack2.model.UserDailyActivity
-import cz.st72504.unitrack2.model.UserStatistics
-import cz.st72504.unitrack2.ui.theme.UpceBlue
-import cz.st72504.unitrack2.ui.components.StatCard
+import cz.st72504.unitrack.model.UserDailyActivity
+import cz.st72504.unitrack.model.UserStatistics
+import cz.st72504.unitrack.ui.theme.ProgressTeal
+import cz.st72504.unitrack.ui.components.StatCard
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.ceil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimeStatsScreen(
+fun DistanceStatsScreen(
     userStats: UserStatistics?,
     onBack: () -> Unit,
     dailyActivities: List<UserDailyActivity>
@@ -44,7 +44,7 @@ fun TimeStatsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Statistiky času") },
+                title = { Text("Statistiky vzdálenosti") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zpět") } }
             )
         },
@@ -62,29 +62,29 @@ fun TimeStatsScreen(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 StatCard(
-                    label = "Průměrná doba",
-                    value = if (userStats != null) "${(userStats.avg_time / 60).toInt()}m ${(userStats.avg_time % 60).toInt()}s" else "Načítání...",
+                    label = "Průměrná vzdálenost",
+                    value = if (userStats != null) String.format(java.util.Locale.US, "%.2f km", userStats.avg_distance / 1000) else "Načítání...",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
                     onClick = {}
                 )
                 StatCard(
-                    label = "Nejdelší doba",
-                    value = if (userStats != null) "${userStats.longest_time / 3600}h ${(userStats.longest_time % 3600) / 60}m" else "Načítání...",
+                    label = "Nejdelší vzdálenost",
+                    value = if (userStats != null) String.format(java.util.Locale.US, "%.2f km", userStats.longest_run / 1000) else "Načítání...",
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight(),
                     onClick = {}
                 )
             }
-            DailyTimeChart(dailyActivities)
+            DailyActivityChart(dailyActivities)
         }
     }
 }
 
 @Composable
-fun DailyTimeChart(activities: List<UserDailyActivity>) {
+fun DailyActivityChart(activities: List<UserDailyActivity>) {
     val currentLocale = remember { java.util.Locale.getDefault() }
     val dayFormatter = DateTimeFormatter.ofPattern("EEE", currentLocale)
 
@@ -95,27 +95,28 @@ fun DailyTimeChart(activities: List<UserDailyActivity>) {
 
     val chartEntries = (0..6).map { i ->
         val date = startDate.plusDays(i.toLong())
-        val duration = activitiesByDate[date]?.total_duration ?: 0
-        entryOf(i.toFloat(), (duration.toFloat() / 60f))
+        val distance = activitiesByDate[date]?.total_distance ?: 0
+        entryOf(i.toFloat(), (distance.toDouble() / 1000).toFloat())
     }
 
-    val maxTimeMinutes = chartEntries.maxOfOrNull { it.y } ?: 0f
-    val targetMax = maxTimeMinutes * 1.2f
+    val maxDistanceKm = chartEntries.maxOfOrNull { it.y } ?: 0f
+    val targetMax = maxDistanceKm * 1.2f
 
     val dynamicMaxY = when {
-        targetMax <= 0f -> 30f
-        targetMax <= 30f -> 30f
-        targetMax <= 60f -> 60f
-        targetMax <= 90f -> 90f
-        targetMax <= 120f -> 120f
-        else -> (ceil(targetMax / 30.0) * 30).toFloat()
+        targetMax <= 0f -> 5f
+        targetMax <= 5f -> 5f
+        targetMax <= 10f -> 10f
+        targetMax <= 20f -> 20f
+        targetMax <= 50f -> 50f
+        else -> (ceil(targetMax / 20.0) * 20).toFloat()
     }
 
     val yStep = when {
-        dynamicMaxY <= 30f -> 5f
-        dynamicMaxY <= 60f -> 10f
-        dynamicMaxY <= 120f -> 20f
-        else -> 30f
+        dynamicMaxY <= 5f -> 1f
+        dynamicMaxY <= 10f -> 2f
+        dynamicMaxY <= 20f -> 5f
+        dynamicMaxY <= 50f -> 10f
+        else -> 20f
     }
     val yAxisItemCount = (dynamicMaxY / yStep).toInt() + 1
 
@@ -137,7 +138,7 @@ fun DailyTimeChart(activities: List<UserDailyActivity>) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                "Minuty za posledních 7 dní",
+                "Kilometry za posledních 7 dní",
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(bottom = 16.dp),
                 color = MaterialTheme.colorScheme.onSurface
@@ -145,9 +146,9 @@ fun DailyTimeChart(activities: List<UserDailyActivity>) {
             Chart(
                 chart = columnChart(
                     columns = listOf(
-                        remember(UpceBlue) {
+                        remember(ProgressTeal) {
                             com.patrykandpatrick.vico.core.component.shape.LineComponent(
-                                color = UpceBlue.toArgb(),
+                                color = ProgressTeal.toArgb(),
                                 thicknessDp = 24f,
                                 shape = com.patrykandpatrick.vico.core.component.shape.Shapes.roundedCornerShape(allPercent = 30)
                             )
@@ -166,7 +167,7 @@ fun DailyTimeChart(activities: List<UserDailyActivity>) {
                             maxItemCount = yAxisItemCount
                         )
                     },
-                    valueFormatter = { value, _ -> String.format(java.util.Locale.US, "%.0f min", value) }
+                    valueFormatter = { value, _ -> String.format(java.util.Locale.US, "%.0f", value) }
                 ),
                 bottomAxis = rememberBottomAxis(
                     valueFormatter = bottomAxisValueFormatter

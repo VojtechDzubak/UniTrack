@@ -1,8 +1,7 @@
-package cz.st72504.unitrack2
+package cz.st72504.unitrack
 
-import android.util.Log
 import com.google.gson.Gson
-import cz.st72504.unitrack2.model.*
+import cz.st72504.unitrack.model.*
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback

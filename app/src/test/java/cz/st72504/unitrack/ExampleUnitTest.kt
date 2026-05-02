@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2
+package cz.st72504.unitrack
 
 import org.junit.Test
 

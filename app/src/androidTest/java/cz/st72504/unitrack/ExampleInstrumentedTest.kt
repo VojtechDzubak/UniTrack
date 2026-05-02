@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2
+package cz.st72504.unitrack
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

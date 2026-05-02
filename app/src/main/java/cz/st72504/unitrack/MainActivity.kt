@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2
+package cz.st72504.unitrack
 
 import android.content.Intent
 import android.net.Uri
@@ -12,10 +12,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
-import cz.st72504.unitrack2.model.*
-import cz.st72504.unitrack2.ui.MainScreen
-import cz.st72504.unitrack2.ui.screens.*
-import cz.st72504.unitrack2.ui.theme.UniTrack2Theme
+import cz.st72504.unitrack.model.*
+import cz.st72504.unitrack.ui.MainScreen
+import cz.st72504.unitrack.ui.screens.*
+import cz.st72504.unitrack.ui.theme.UniTrack2Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

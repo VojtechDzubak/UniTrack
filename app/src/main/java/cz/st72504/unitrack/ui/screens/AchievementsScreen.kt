@@ -1,4 +1,4 @@
-package cz.st72504.unitrack2.ui.screens
+package cz.st72504.unitrack.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
@@ -18,9 +18,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cz.st72504.unitrack2.model.UserAchievements
-import cz.st72504.unitrack2.ui.theme.ProgressTeal
-import cz.st72504.unitrack2.ui.theme.UpceRed
+import cz.st72504.unitrack.model.UserAchievements
+import cz.st72504.unitrack.ui.theme.ProgressTeal
+import cz.st72504.unitrack.ui.theme.UpceRed
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

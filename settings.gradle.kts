@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "UniTrack2"
+rootProject.name = "UniTrack"
 include(":app")
