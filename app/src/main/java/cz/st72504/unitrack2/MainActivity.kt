@@ -557,7 +557,9 @@ class MainActivity : ComponentActivity() {
             withContext(Dispatchers.Main) {
                 if (success) {
                     logout()
-                    statusText = "Účet smazán."
+                    statusText = "Účet byl úspěšně smazán."
+                } else {
+                    statusText = "❌ Chyba při mazání účtu."
                 }
             }
         }
@@ -570,19 +572,22 @@ class MainActivity : ComponentActivity() {
         userName = ""
         userTeam = ""
         userAvatarUrl = ""
-        activitiesList = emptyList()
-        publicActivitiesList = emptyList()
         isStravaLinked = false
+        statusText = "Stav: Nepřihlášen"
+
         showRegistrationForm = false
         showSettingsScreen = false
+
+        activitiesList = emptyList()
         userStats = null
         allUserStatsList = emptyList()
-        teamStatsList = emptyList()
         dailyActivities = emptyList()
         userAchievements = null
-        statusText = "Stav: Nepřihlášen"
+
         dataCache.clearCache()
         getSharedPreferences("UniTrackPrefs", MODE_PRIVATE).edit().clear().apply()
+
+        fetchPublicDataOnly()
     }
 
     // Zpracování návratu z prohlížeče (OAuth callback)
@@ -608,6 +613,11 @@ class MainActivity : ComponentActivity() {
                                 statusText = "✅ Strava připojena!"
                                 isStravaLinked = true
                                 fetchData(forceRefresh = true)
+                                lifecycleScope.launch {
+                                    pbClient.triggerStravaSync(loggedInPbToken)
+                                    fetchData(forceRefresh = true) // Refreshne UI s novými daty
+                                    statusText = "✅ Strava propojena a synchronizována!"
+                                }
                             }
                         } else {
                             statusText = "❌ Chyba Stravy."
@@ -2206,21 +2216,18 @@ fun DailyTimeChart(activities: List<UserDailyActivity>) {
 // Seznam odznaků a úspěchů uživatele
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AchievementsScreen(
-    achievements: UserAchievements?,
-    onBack: () -> Unit
-) {
+fun AchievementsScreen(achievements: UserAchievements?, onBack: () -> Unit) {
     BackHandler { onBack() }
 
     val metadataList = listOf(
-        AchievementMetadata("badge_patriot", "Srdcař", "Nasbírej celkem 50 km.", 500),
-        AchievementMetadata("badge_charity", "Dobré srdce", "Zaznamenej aktivitu 11. října.", 1000),
-        AchievementMetadata("badge_morning", "Ranní ptáče", "Začni aktivitu před 6:00.", 300),
-        AchievementMetadata("badge_sprinter", "Sprinter", "Uraz aspoň 1 km rychlostí nad 15 km/h.", 400),
-        AchievementMetadata("badge_weekend", "Víkendový dříč", "Zaznamenej aktivitu v sobotu i v neděli.", 250),
-        AchievementMetadata("badge_marathon", "Maratonec", "Uraz 42,2 km v jedné aktivitě.", 2000),
-        AchievementMetadata("badge_halfmarathon", "Půlmaratonec", "Uraz 21,1 km v jedné aktivitě.", 1000),
-        AchievementMetadata("badge_unstoppable", "Nezastavitelný", "Zaznamenej aktivitu v 7 různých dnech.", 750)
+        AchievementMetadata("badge_run_50", "Vytrvalostní běžec", "Uběhni celkem alespoň 50 km.", 500),
+        AchievementMetadata("badge_walk_20", "Univerzitní chodec", "Ujdi celkem alespoň 20 km.", 400),
+        AchievementMetadata("badge_ride_100", "Král cyklostezek", "Najezdi na kole celkem alespoň 100 km.", 600),
+        AchievementMetadata("badge_total_150", "Multisportovec", "Dosáhni celkem 150 km v součtu všech aktivit.", 1000),
+        AchievementMetadata("badge_single_20", "Železná vůle", "Absolvuj jednu aktivitu delší než 20 km.", 800),
+        AchievementMetadata("badge_morning", "Ranní ptáče", "Zahaj aktivitu před 6:00 ráno.", 300),
+        AchievementMetadata("badge_sprinter", "Rychlík", "Běhej s tempem pod 4:00 min/km (aspoň 1 km).", 500),
+        AchievementMetadata("badge_weekend", "Víkendový bojovník", "Zaznamenej aktivitu v sobotu i v neděli.", 250)
     )
 
     Scaffold(
@@ -2240,14 +2247,14 @@ fun AchievementsScreen(
         ) {
             items(metadataList) { meta ->
                 val isEarned = when (meta.key) {
-                    "badge_patriot" -> (achievements?.badge_patriot ?: 0) > 0
-                    "badge_charity" -> (achievements?.badge_charity ?: 0) > 0
+                    "badge_run_50" -> (achievements?.badge_run_50 ?: 0) > 0
+                    "badge_walk_20" -> (achievements?.badge_walk_20 ?: 0) > 0
+                    "badge_ride_100" -> (achievements?.badge_ride_100 ?: 0) > 0
+                    "badge_total_150" -> (achievements?.badge_total_150 ?: 0) > 0
+                    "badge_single_20" -> (achievements?.badge_single_20 ?: 0) > 0
                     "badge_morning" -> (achievements?.badge_morning ?: 0) > 0
                     "badge_sprinter" -> (achievements?.badge_sprinter ?: 0) > 0
                     "badge_weekend" -> (achievements?.badge_weekend ?: 0) > 0
-                    "badge_marathon" -> (achievements?.badge_marathon ?: 0) > 0
-                    "badge_halfmarathon" -> (achievements?.badge_halfmarathon ?: 0) > 0
-                    "badge_unstoppable" -> (achievements?.badge_unstoppable ?: 0) > 0
                     else -> false
                 }
 
