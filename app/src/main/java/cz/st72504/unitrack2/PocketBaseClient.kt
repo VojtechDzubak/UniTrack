@@ -2,6 +2,7 @@ package cz.st72504.unitrack2
 
 import android.util.Log
 import com.google.gson.Gson
+import cz.st72504.unitrack2.model.*
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
@@ -12,121 +13,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.IOException
 import kotlin.coroutines.resume
-
-// --- DATOVÉ TŘÍDY ---
-
-// Poskytovatelé přihlášení (Microsoft atd.)
-data class AuthMethodsResponse(val authProviders: List<AuthProvider>)
-data class AuthProvider(val name: String, val authUrl: String, val codeVerifier: String, val state: String)
-
-// Odpověď po přihlášení (token + data uživatele)
-data class AuthResponse(val token: String, val record: UserRecord)
-
-// Základní záznam uživatele
-data class UserRecord(
-    val id: String,
-    val name: String,
-    val email: String,
-    val team: String?,
-    val public: Boolean?,
-    val avatar: String?,
-    val strava_athlete_id: String?
-)
-
-// Statistiky uživatele (vzdálenost, XP, level)
-data class UserStatistics(
-    val id: String,
-    val name: String,
-    val team: String,
-    val avatar: String,
-    val total_distance: Double,
-    val total_time: Int,
-    val longest_run: Double,
-    val avg_distance: Double,
-    val avg_time: Double,
-    val longest_time: Int,
-    val calories: Int,
-    val total_xp: Int,
-    val level: Int,
-    val current_level_xp: Int,
-    val xp_for_next_level: Int,
-    val rank: Int = 0
-)
-
-data class UserStatisticsListResponse(val items: List<UserStatistics>)
-
-// Statistiky fakult
-data class TeamStatistics(
-    val id: String,
-    val team: String,
-    val runners_count: Int,
-    val total_distance: Double,
-    val run_distance: Double,
-    val walk_distance: Double,
-    val ride_distance: Double,
-    var rank: Int = 0
-)
-
-data class TeamStatisticsListResponse(val items: List<TeamStatistics>)
-
-// Odpověď po synchronizaci se Stravou
-data class SyncResponse(val message: String, val saved: Int, val total: Int)
-
-// Záznam jedné aktivity
-data class ActivityListResponse(val items: List<ActivityRecord>)
-data class ActivityRecord(
-    val id: String,
-    val name: String,
-    val distance: Double,
-    val duration: Int,
-    val start_date: String,
-    val activity_type: String
-)
-
-// Záznam veřejné aktivity
-data class PublicActivityListResponse(val items: List<PublicActivityRecord>)
-data class PublicActivityRecord(
-    val id: String,
-    val user_id: String,
-    val user_name: String,
-    val user_avatar: String,
-    val user_team: String,
-    val distance: Double,
-    val activity_type: String,
-    val duration: Int,
-    val start_date: String
-)
-
-// Denní souhrny pro grafy
-data class UserDailyActivity(
-    val day: String,
-    val total_distance: Double,
-    val total_duration: Int
-)
-
-data class UserDailyActivityListResponse(val items: List<UserDailyActivity>)
-
-// Úspěchy a odznaky
-data class UserAchievements(
-    val id: String,
-    val badge_run_50: Int,
-    val badge_walk_20: Int,
-    val badge_ride_100: Int,
-    val badge_total_150: Int,
-    val badge_single_20: Int,
-    val badge_morning: Int,
-    val badge_sprinter: Int,
-    val badge_weekend: Int
-) {
-    fun earnedCount(): Int {
-        return listOf(
-            badge_run_50, badge_walk_20, badge_ride_100, badge_total_150,
-            badge_single_20, badge_morning, badge_sprinter, badge_weekend
-        ).count { it > 0 }
-    }
-
-    fun totalCount(): Int = 8
-}
 
 // --- SÍŤOVÝ KLIENT ---
 
@@ -317,11 +203,7 @@ class PocketBaseClient {
                 if (pbToken.isNotEmpty()) {
                     requestBuilder.addHeader("Authorization", "Bearer $pbToken")
                 }
-                val request = Request.Builder()
-                    .url(url)
-                    .get()
-                    .addHeader("Authorization", "Bearer $pbToken")
-                    .build()
+                val request = requestBuilder.build()
 
                 val call = client.newCall(request)
 

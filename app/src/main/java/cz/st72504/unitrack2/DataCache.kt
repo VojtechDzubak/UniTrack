@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import cz.st72504.unitrack2.model.*
 
 class DataCache(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("UniTrackCache", Context.MODE_PRIVATE)

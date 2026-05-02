@@ -51,6 +51,7 @@ import com.patrykandpatrick.vico.core.axis.formatter.AxisValueFormatter
 import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
 import com.patrykandpatrick.vico.compose.chart.scroll.rememberChartScrollSpec
 import com.patrykandpatrick.vico.core.entry.entryOf
+import cz.st72504.unitrack2.model.*
 import cz.st72504.unitrack2.ui.theme.UniTrack2Theme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -313,7 +314,7 @@ class MainActivity : ComponentActivity() {
     // Načte statistiky pro aktuálně přihlášeného uživatele
     private fun fetchUserStats(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty() || loggedInUserId.isEmpty()) return
-        
+
         val foundInAll = allUserStatsList.find { it.id == loggedInUserId }
         if (!forceRefresh && foundInAll != null) {
             userStats = foundInAll
@@ -336,13 +337,13 @@ class MainActivity : ComponentActivity() {
     // Načte statistiky všech uživatelů ze serveru
     private fun fetchAllUserStats(forceRefresh: Boolean = false) {
         if (loggedInPbToken.isEmpty()) return
-        
+
         val cached = dataCache.getAllUserStats()
         if (!forceRefresh && cached.isNotEmpty()) {
             val ranked = rankStats(cached)
             allUserStatsList = ranked
-            ranked.find { it.id == loggedInUserId }?.let { 
-                userStats = it 
+            ranked.find { it.id == loggedInUserId }?.let {
+                userStats = it
             }
             return
         }
@@ -353,7 +354,7 @@ class MainActivity : ComponentActivity() {
                 val rankedStats = rankStats(stats)
                 allUserStatsList = rankedStats
                 dataCache.saveAllUserStats(rankedStats)
-                
+
                 rankedStats.find { it.id == loggedInUserId }?.let {
                     userStats = it
                     dataCache.saveUserStats(it)
@@ -883,7 +884,7 @@ fun OverallResultsView(
                         modifier = Modifier.padding(bottom = 24.dp),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    
+
                     FacultyDonutChart(teamStats)
                 }
             }
@@ -1905,6 +1906,7 @@ fun RankingScreen(
         }
     )
 }
+
 
 // Obrazovka s detailními statistikami vzdálenosti a grafem
 @OptIn(ExperimentalMaterial3Api::class)
