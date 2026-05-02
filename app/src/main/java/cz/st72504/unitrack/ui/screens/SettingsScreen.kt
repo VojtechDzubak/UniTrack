@@ -107,7 +107,7 @@ fun SettingsScreen(
                     val imageBitmap = avatarBytes?.let {
                         try {
                             android.graphics.BitmapFactory.decodeByteArray(it, 0, it.size).asImageBitmap()
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             null
                         }
                     }
@@ -152,6 +152,15 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = userTeam,
+                        onValueChange = { },
+                        label = { Text("Fakulta (nelze změnit)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = false,
+                        readOnly = true
+                    )
+                    Spacer(Modifier.height(16.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
@@ -166,7 +175,6 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = UpceRed)
                     ) {
-                        @Suppress("DEPRECATION")
                         Text("Uložit změny", color = Color.White)
                     }
                 }
@@ -197,7 +205,6 @@ fun SettingsScreen(
                         ),
                         enabled = !isStravaLinked
                     ) {
-                        @Suppress("DEPRECATION")
                         Text(if (isStravaLinked) "Strava připojena ✅" else "Připojit Strava", color = Color.White)
                     }
                     Spacer(Modifier.height(8.dp))
@@ -207,7 +214,6 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = UpceBlue)
                     ) {
-                        @Suppress("DEPRECATION")
                         Text("Synchronizovat", color = Color.White)
                     }
                 }
@@ -242,7 +248,6 @@ fun SettingsScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = UpceRed),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        @Suppress("DEPRECATION")
                         Text("Smazat účet", color = Color.White)
                     }
                 }
@@ -260,7 +265,7 @@ fun SettingsScreen(
                                 showDeleteDialog = false
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = UpceRed)
-                        ) { @Suppress("DEPRECATION") Text("Smazat", color = Color.White) }
+                        ) { Text("Smazat", color = Color.White) }
                     },
                     dismissButton = {
                         Button(onClick = { showDeleteDialog = false }) { Text("Zrušit") }

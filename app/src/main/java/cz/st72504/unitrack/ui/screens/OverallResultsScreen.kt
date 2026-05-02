@@ -204,7 +204,7 @@ fun OverallResultsView(
                         ) {
                             AsyncImage(
                                 model = if (act.user_id.isNotEmpty() && act.user_avatar.isNotEmpty()) {
-                                    "https://pb.unitrack.fun/api/files/users/${act.user_id}/${act.user_avatar}"
+                                    "https://pb.unitrack.fun/api/files/_pb_users_auth_/${act.user_id}/${act.user_avatar}"
                                 } else {
                                     null
                                 },
